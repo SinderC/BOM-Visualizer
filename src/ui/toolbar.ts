@@ -9,6 +9,21 @@ function button(label: string, title: string, onClick: () => void): HTMLButtonEl
   return b;
 }
 
+/** Dropdown using the Popover API, which provides outside-click and Escape dismissal. */
+function menu(label: string, items: HTMLButtonElement[]): HTMLElement {
+  const list = h('div', { className: 'menu-list', popover: 'auto' }, ...items);
+  const trigger = h('button', { popoverTargetElement: list }, `${label} ▾`);
+  list.addEventListener('beforetoggle', () => {
+    const r = trigger.getBoundingClientRect();
+    list.style.left = `${r.left}px`;
+    list.style.top = `${r.bottom + 4}px`;
+  });
+  list.addEventListener('click', (e) => {
+    if ((e.target as Element).closest('button')) list.hidePopover();
+  });
+  return h('span', {}, trigger, list);
+}
+
 async function openFile(app: App, file: File): Promise<void> {
   try {
     app.loadDocument(parseXml(await file.text()), file.name);
@@ -46,9 +61,11 @@ export function renderToolbar(container: HTMLElement, app: App): void {
 
   container.replaceChildren(
     h('strong', { className: 'brand' }, 'BOM Visualizer'),
-    button('New', 'Start an empty document', () => app.loadDocument(createDocument(), 'untitled.xml')),
-    button('Open…', 'Open a BOM XML file', () => fileInput.click()),
-    button('Save', `Download as ${state.fileName}`, () => saveFile(app)),
+    menu('File', [
+      button('New', 'Start an empty document', () => app.loadDocument(createDocument(), 'untitled.xml')),
+      button('Open…', 'Open a BOM XML file', () => fileInput.click()),
+      button('Save', `Download as ${state.fileName}`, () => saveFile(app)),
+    ]),
     fileInput,
     h('span', { className: 'sep' }),
     h('label', { className: 'inline' }, 'BOM', bomSelect),

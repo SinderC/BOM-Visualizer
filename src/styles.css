@@ -59,6 +59,20 @@ body {
 #toolbar .sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
 #toolbar .file-name { margin-left: auto; }
 #toolbar input[name='bom-name'] { width: 180px; }
+.menu-list {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 4px;
+  min-width: 140px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+}
+.menu-list:popover-open { display: flex; flex-direction: column; }
+.menu-list button { border: 0; text-align: left; }
 
 main {
   display: grid;
