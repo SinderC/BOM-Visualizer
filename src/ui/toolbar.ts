@@ -191,7 +191,8 @@ export function renderToolbar(container: HTMLElement, app: App): void {
   const dirty = app.isDirty();
   const fileName = h('span', { className: 'muted file-name', title: dirty ? 'Unsaved changes' : '' }, (dirty ? '• ' : '') + state.fileName);
 
-
+  // A toggle that re-renders (Hide excluded rows) rebuilds the menus, so reopen the menu that was open.
+  const openMenu = container.querySelector(':scope > span > .menu-list:popover-open')?.previousElementSibling?.textContent;
   container.replaceChildren(
     h('strong', { className: 'brand' }, 'BOM Visualizer'),
     menu('File', [
@@ -215,6 +216,9 @@ export function renderToolbar(container: HTMLElement, app: App): void {
     ...(doc ? [bomNameInput(app)] : []),
     fileName,
   );
+  for (const trigger of container.querySelectorAll<HTMLButtonElement>(':scope > span > button')) {
+    if (trigger.textContent === openMenu) (trigger.popoverTargetElement as HTMLElement | null)?.showPopover();
+  }
 }
 
 function bomItems(app: App): HTMLElement[] {
