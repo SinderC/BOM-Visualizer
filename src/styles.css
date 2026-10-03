@@ -148,9 +148,11 @@ main {
 #tree { grid-column: 2; }
 #editor { grid-column: 3; }
 /* Panels hidden from the View menu, or with no document open. */
-:root[data-hide-config] main, body.no-doc main { --config-w: 0px; }
+/* The left panel holds Configuration and Option families, and is hidden when both are. */
+:root[data-hide-config][data-hide-families] main, body.no-doc main { --config-w: 0px; }
 :root[data-hide-editor] main, body.no-doc main { --editor-w: 0px; }
-:root[data-hide-config] #config-panel, :root[data-hide-editor] #editor { display: none; }
+:root[data-hide-config][data-hide-families] #config-panel, :root[data-hide-editor] #editor { display: none; }
+:root[data-hide-config] .config-section, :root[data-hide-families] .families-section { display: none; }
 
 aside {
   background: var(--panel);
@@ -158,6 +160,7 @@ aside {
   overflow-y: auto;
 }
 #config-panel { border-right: 1px solid var(--border); }
+:root:not([data-hide-config]) .families-section { border-top: 1px solid var(--border); margin: 16px -14px 0; padding: 12px 14px 0; }
 #editor { border-left: 1px solid var(--border); }
 
 h2 { font-size: 14px; margin: 0 0 8px; }

@@ -7,7 +7,7 @@ import { COLUMNS } from './tree-table';
  */
 const VIEW_KEY = 'bom-visualizer.view';
 
-export type Panel = 'config' | 'editor';
+export type Panel = 'config' | 'families' | 'editor';
 
 interface ViewPrefs {
   banded: boolean;
@@ -42,7 +42,7 @@ const columnStyle = document.head.appendChild(document.createElement('style'));
 export function applyView(): void {
   const root = document.documentElement;
   root.toggleAttribute('data-banded', prefs.banded);
-  for (const p of ['config', 'editor'] as const) root.toggleAttribute(`data-hide-${p}`, prefs.hiddenPanels.includes(p));
+  for (const p of ['config', 'families', 'editor'] as const) root.toggleAttribute(`data-hide-${p}`, prefs.hiddenPanels.includes(p));
   columnStyle.textContent = COLUMNS.map((c, i) =>
     prefs.hiddenColumns.includes(c.key) ? `.tree-table tr > :nth-child(${i + 1}) { display: none; }` : '',
   ).join('\n');

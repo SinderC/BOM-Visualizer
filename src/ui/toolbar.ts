@@ -282,6 +282,7 @@ function viewItems(app: App): HTMLElement[] {
     ),
     h('hr'),
     panel('config', 'Configuration', 'Show or hide the configuration panel'),
+    panel('families', 'Option families', 'Show or hide the option families panel'),
     panel('editor', 'Editor', 'Show or hide the editor panel'),
   ];
 }

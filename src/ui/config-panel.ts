@@ -33,13 +33,17 @@ export function renderConfigPanel(container: HTMLElement, app: App, root: Occurr
   const unit = h('input', { type: 'number', name: 'cfg-unit', min: '1', step: '1', value: ctx.unit?.toString() ?? '' });
   unit.addEventListener('change', () => app.commit(() => (ctx.unit = unit.value ? Number(unit.value) : undefined)));
 
+  // Two sections, each shown or hidden from the View menu.
   container.replaceChildren(
-    h('h2', {}, 'Configuration'),
-    h('label', { className: 'check' }, enabled, 'Apply configuration'),
-    h('fieldset', { disabled: !ctx.enabled }, ...options, h('label', {}, 'Date', date), h('label', {}, 'Unit', unit)),
-    h('p', { className: 'muted' }, ctx.enabled ? `${included} of ${total} occurrences included` : `${total} occurrences`),
-    h('h2', {}, 'Option families'),
-    ...renderFamilies(app),
+    h(
+      'section',
+      { className: 'config-section' },
+      h('h2', {}, 'Configuration'),
+      h('label', { className: 'check' }, enabled, 'Apply configuration'),
+      h('fieldset', { disabled: !ctx.enabled }, ...options, h('label', {}, 'Date', date), h('label', {}, 'Unit', unit)),
+      h('p', { className: 'muted' }, ctx.enabled ? `${included} of ${total} occurrences included` : `${total} occurrences`),
+    ),
+    h('section', { className: 'families-section' }, h('h2', {}, 'Option families'), ...renderFamilies(app)),
   );
 }
 
