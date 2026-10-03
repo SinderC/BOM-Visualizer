@@ -1,5 +1,6 @@
 import './styles.css';
 import { activeBom, type App, type State } from './app';
+import { createHistory } from './history';
 import { resolve, type Occurrence } from './resolve';
 import sample from './samples/car.xml?raw';
 import { renderConfigPanel } from './ui/config-panel';
@@ -8,7 +9,7 @@ import { storedShowConfig } from './ui/sidebar';
 import { renderToolbar } from './ui/toolbar';
 import { watchSystemTheme } from './ui/theme';
 import { createTreeTable } from './ui/tree-table';
-import { parseXml } from './xml';
+import { parseXml, serializeXml } from './xml';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -22,6 +23,10 @@ const state: State = {
 };
 
 let index = new Map<string, Occurrence>();
+const history = createHistory(
+  () => serializeXml(state.doc),
+  (snapshot) => (state.doc = parseXml(snapshot)),
+);
 let renderQueued = false;
 let toastTimer: number | undefined;
 
@@ -29,6 +34,7 @@ const app: App = {
   state,
   commit(mutate) {
     mutate?.();
+    history.record();
     // Deferred so that focus has moved (e.g. Tab after a change event) before panels are rebuilt.
     if (!renderQueued) {
       renderQueued = true;
@@ -42,6 +48,7 @@ const app: App = {
     state.selected = undefined;
     state.collapsed.clear();
     state.ctx.options = {};
+    history.reset();
     app.commit();
   },
   toast(message, isError = false) {
@@ -52,6 +59,7 @@ const app: App = {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => (el.hidden = true), isError ? 6000 : 2500);
   },
+  history,
   occurrence: (address) => (address === undefined ? undefined : index.get(address)),
 };
 
@@ -77,6 +85,17 @@ function render(): void {
 
   if (focusedName) document.querySelector<HTMLElement>(`[name="${CSS.escape(focusedName)}"]`)?.focus();
 }
+
+// Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z and Ctrl+Y; text fields keep their own undo.
+document.addEventListener('keydown', (e) => {
+  if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+  if ((e.target as HTMLElement).closest('input, textarea')) return;
+  const key = e.key.toLowerCase();
+  const redo = (key === 'z' && e.shiftKey) || (key === 'y' && !e.shiftKey);
+  if (key !== 'z' && !redo) return;
+  e.preventDefault();
+  app.commit(redo ? history.redo : history.undo);
+});
 
 watchSystemTheme();
 render();

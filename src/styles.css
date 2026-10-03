@@ -127,7 +127,8 @@ input, select, textarea, button {
 textarea { resize: vertical; width: 100%; }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 button { cursor: pointer; background: var(--panel); }
-button:hover { background: var(--accent-soft); }
+button:hover:not(:disabled) { background: var(--accent-soft); }
+button:disabled { opacity: 0.45; cursor: default; }
 button.danger { color: var(--danger); margin-top: 8px; }
 button.icon { padding: 4px 8px; flex: 0 0 auto; }
 

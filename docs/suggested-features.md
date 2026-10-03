@@ -15,10 +15,6 @@ Deliberately left out of the first version. Each entry notes what is already in 
 ## 3. Revisions and revision rules
 **What:** Item revisions, with a rule such as "latest released" or "as of date" selecting which revision each occurrence resolves to.
 
-## 4. Undo / redo
-**What:** Command stack around the model mutators in `src/model.ts`.
-**Why:** Removing a relation is currently immediate and irreversible (until reopen).
-
 ## 6. Autosave to localStorage
 **What:** Keep the working document across reloads; offer restore on start.
 

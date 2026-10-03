@@ -131,6 +131,7 @@ export function renderToolbar(container: HTMLElement, app: App): void {
       ...(canWrite ? [button('Save As…', 'Save to a new file', () => void saveFile(app, true))] : []),
     ]),
     fileInput,
+    menu('Edit', editItems(app)),
     menu('BOM', [
       ...bomItems,
       h('hr'),
@@ -143,6 +144,24 @@ export function renderToolbar(container: HTMLElement, app: App): void {
     bomName,
     h('span', { className: 'muted file-name' }, state.fileName),
   );
+}
+
+/** Menu entry with its keyboard shortcut right-aligned, as in native menus. */
+function shortcutItem(label: string, shortcut: string, title: string, onClick: () => void): HTMLButtonElement {
+  const item = button('', title, onClick);
+  item.append(h('span', {}, label), h('span', { className: 'muted' }, shortcut));
+  return item;
+}
+
+const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+
+function editItems(app: App): HTMLButtonElement[] {
+  const { history } = app;
+  const undo = shortcutItem('Undo', isMac ? '⌘Z' : 'Ctrl+Z', 'Undo the last change', () => app.commit(history.undo));
+  const redo = shortcutItem('Redo', isMac ? '⇧⌘Z' : 'Ctrl+Y', 'Redo the last undone change', () => app.commit(history.redo));
+  undo.disabled = !history.canUndo;
+  redo.disabled = !history.canRedo;
+  return [undo, redo];
 }
 
 function themeItems(app: App): HTMLButtonElement[] {

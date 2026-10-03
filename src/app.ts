@@ -1,3 +1,4 @@
+import type { History } from './history';
 import { findBom, type Bom, type BomDocument } from './model';
 import type { ConfigContext, Occurrence } from './resolve';
 
@@ -17,6 +18,8 @@ export interface App {
   commit(mutate?: () => void): void;
   loadDocument(doc: BomDocument, fileName: string): void;
   toast(message: string, isError?: boolean): void;
+  /** Document undo/redo; steps are recorded by `commit`. Use as `app.commit(app.history.undo)`. */
+  history: History;
   /** Occurrence lookup from the latest resolve, by address. */
   occurrence(address: string | undefined): Occurrence | undefined;
 }

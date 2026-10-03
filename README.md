@@ -13,6 +13,7 @@ Lightweight browser sandbox for trying out BOM concepts: multi-level structures,
 - Configuration panel: pick option values, date and unit; excluded rows are dimmed and struck through (hover for the reason).
 - File-tree style structure with Qty / Find no / Variant / Effectivity columns: click ▸/▾ to collapse, click a row to edit, ↑/↓ to move, ←/→ to collapse/expand.
 - Drag and drop rows: onto a row to make it the parent, onto a row's top/bottom edge to place before/after it (find no is set in between, renumbering siblings only when there is no gap). Hold Ctrl or Alt/Option when dropping to copy instead of move. Qty, variant and effectivity are kept; cycles are rejected. Children are shown sorted by find no.
+- Undo / redo of document edits (Edit menu, Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z, Ctrl+Y); up to 100 steps, cleared on New/Open. Configuration, selection and collapse are not undo steps.
 - Theme: System (default, follows the OS live), Light or Dark; the choice is remembered in localStorage.
 - Open/save as XML — see [docs/schema.md](docs/schema.md).
 
