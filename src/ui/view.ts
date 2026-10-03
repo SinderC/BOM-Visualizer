@@ -1,5 +1,3 @@
-import { COLUMNS } from './tree-table';
-
 /**
  * View options remembered in localStorage: side panels, banded rows and tree-table columns (applied with CSS, so
  * toggling needs no re-render), whether the configuration is applied (read into state at start) and whether rows it
@@ -8,6 +6,20 @@ import { COLUMNS } from './tree-table';
 const VIEW_KEY = 'bom-visualizer.view';
 
 export type Panel = 'config' | 'families' | 'editor';
+
+/**
+ * Tree-table columns in display order, which applyView's nth-child rules rely on. Keys are stored in view preferences,
+ * so keep them stable when labels change.
+ */
+export const COLUMNS = [
+  { key: 'name', label: 'Name' },
+  { key: 'id', label: 'ID' },
+  { key: 'type', label: 'Type' },
+  { key: 'qty', label: 'Qty' },
+  { key: 'findNo', label: 'Find no.' },
+  { key: 'variant', label: 'Variant' },
+  { key: 'eff', label: 'Effectivity' },
+];
 
 interface ViewPrefs {
   banded: boolean;

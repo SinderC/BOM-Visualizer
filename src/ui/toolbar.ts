@@ -3,8 +3,8 @@ import { addBom, createDocument } from '../model';
 import { parseXml, serializeXml } from '../xml';
 import { showNewBomDialog, showUnsavedChangesDialog } from './dialogs';
 import { setThemePref, themePref, type ThemePref } from './theme';
-import { COLUMNS } from './tree-table';
 import {
+  COLUMNS,
   isBanded,
   isColumnShown,
   isHideExcluded,

@@ -4,19 +4,9 @@ import { validate } from '../expr';
 import { copyRelation, moveRelation, occurrencePath, parseQty, renameItem, updateItem, updateRelation } from '../model';
 import type { Occurrence } from '../resolve';
 import { typeSelect } from './editor';
-import { isColumnShown, isHideExcluded } from './view';
+import { COLUMNS, isColumnShown, isHideExcluded } from './view';
 
 const INDENT = 18;
-/** Keys are stored in view preferences, so keep them stable when labels change. */
-export const COLUMNS = [
-  { key: 'name', label: 'Name' },
-  { key: 'id', label: 'ID' },
-  { key: 'type', label: 'Type' },
-  { key: 'qty', label: 'Qty' },
-  { key: 'findNo', label: 'Find no.' },
-  { key: 'variant', label: 'Variant' },
-  { key: 'eff', label: 'Effectivity' },
-];
 
 /** Indented tree-table (structure-manager style) with collapse, selection and keyboard navigation. */
 export function createTreeTable(container: HTMLElement, app: App) {
