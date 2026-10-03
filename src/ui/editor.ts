@@ -81,14 +81,7 @@ function itemSection(app: App, occ: Occurrence): HTMLElement[] {
   const description = h('textarea', { name: 'item-desc', value: item.description, rows: 2 });
   description.addEventListener('change', () => app.commit(() => updateItem(doc, item.id, { description: description.value })));
 
-  const id = mono(input('item-id', item.id, (v) => {
-    try {
-      app.commit(() => renameItem(doc, item.id, v));
-    } catch (e) {
-      app.toast((e as Error).message, true);
-      app.commit(); // restore the old id in the field
-    }
-  }));
+  const id = mono(input('item-id', item.id, (v) => app.tryCommit(() => renameItem(doc, item.id, v))));
 
   const type = typeSelect(app, 'item-type', item.type, (t) => updateItem(doc, item.id, { type: t }));
 
@@ -159,18 +152,14 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
   type.title = 'Type of the new item; also sets its ID prefix';
   existing.addEventListener('change', () => (name.disabled = type.disabled = !!existing.value));
   const add = h('button', {}, 'Add child');
-  add.addEventListener('click', () => {
-    try {
-      app.commit(() => {
-        const childId = existing.value || addItem(doc, name.value.trim() || 'New item', '', addChildType).id;
-        const rel = addRelation(doc, bom, occ.item.id, childId);
-        collapsed.delete(occ.address);
-        app.state.selected = occurrencePath(bom.id, [...occ.path, rel.id]);
-      });
-    } catch (e) {
-      app.toast((e as Error).message, true);
-    }
-  });
+  add.addEventListener('click', () =>
+    app.tryCommit(() => {
+      const childId = existing.value || addItem(doc, name.value.trim() || 'New item', '', addChildType).id;
+      const rel = addRelation(doc, bom, occ.item.id, childId);
+      collapsed.delete(occ.address);
+      app.state.selected = occurrencePath(bom.id, [...occ.path, rel.id]);
+    }),
+  );
 
   const out: HTMLElement[] = [h('h3', {}, 'Structure'), h('div', { className: 'row' }, existing), h('div', { className: 'row' }, name, type), add];
   if (occ.relation) {

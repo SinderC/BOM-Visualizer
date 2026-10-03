@@ -46,6 +46,14 @@ const app: App = {
       setTimeout(render);
     }
   },
+  tryCommit(mutate) {
+    try {
+      app.commit(mutate);
+    } catch (e) {
+      app.toast((e as Error).message, true);
+      app.commit();
+    }
+  },
   loadDocument(doc, fileName) {
     state.doc = doc;
     state.bomId = doc.boms[0].id;

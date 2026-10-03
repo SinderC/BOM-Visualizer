@@ -15,6 +15,8 @@ export interface State {
 export interface App {
   state: State;
   commit(mutate?: () => void): void;
+  /** Like `commit`, but an error from `mutate` is shown as a toast; the re-render restores the edited field. */
+  tryCommit(mutate: () => void): void;
   loadDocument(doc: BomDocument, fileName: string): void;
   closeDocument(): void;
   /** True when the document differs from what was last opened from or saved to file. */

@@ -92,14 +92,7 @@ export function createTreeTable(container: HTMLElement, app: App) {
     const field = h('input', { className: 'mono', value: host.textContent ?? '', spellcheck: false });
     let cancelled = false;
     field.addEventListener('keydown', (ke) => keydown(ke, () => (cancelled = true)));
-    field.addEventListener('blur', () => {
-      try {
-        app.commit(cancelled ? undefined : () => save(field.value.trim()));
-      } catch (err) {
-        app.toast((err as Error).message, true);
-        app.commit(); // restore the old value
-      }
-    });
+    field.addEventListener('blur', () => (cancelled ? app.commit() : app.tryCommit(() => save(field.value.trim()))));
     edit(host, field, width);
     field.select();
   }
@@ -165,18 +158,14 @@ export function createTreeTable(container: HTMLElement, app: App) {
     if (!hit || !relId) return;
     e.preventDefault();
     const { parent, beforeId, copy } = hit;
-    try {
-      app.commit(() => {
-        const bom = activeBom(app.state);
-        const rel = copy
-          ? copyRelation(openDoc(app.state), bom, relId, parent.item.id, beforeId)
-          : moveRelation(bom, relId, parent.item.id, beforeId);
-        app.state.collapsed.delete(parent.address);
-        app.state.selected = occurrencePath(bom.id, [...parent.path, rel.id]);
-      });
-    } catch (err) {
-      app.toast((err as Error).message, true);
-    }
+    app.tryCommit(() => {
+      const bom = activeBom(app.state);
+      const rel = copy
+        ? copyRelation(openDoc(app.state), bom, relId, parent.item.id, beforeId)
+        : moveRelation(bom, relId, parent.item.id, beforeId);
+      app.state.collapsed.delete(parent.address);
+      app.state.selected = occurrencePath(bom.id, [...parent.path, rel.id]);
+    });
   });
 
   table.addEventListener('keydown', (e) => {
