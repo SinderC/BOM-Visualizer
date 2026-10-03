@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addItem, addItemType, addRelation, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, removeRelation, renameItem, validateDocument } from './model';
+import { addItem, addItemType, addRelation, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, parseUnit, removeRelation, renameItem, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -14,6 +14,12 @@ describe('model', () => {
     expect(parseQty('0', 3)).toBe(0);
     expect(parseQty('2.5', 3)).toBe(2.5);
     for (const v of ['', 'abc', '-1']) expect(parseQty(v, 3)).toBe(3);
+  });
+
+  it('parseUnit clears on blank and keeps the current unit for non-integer input', () => {
+    expect(parseUnit('100', 5)).toBe(100);
+    expect(parseUnit('', 5)).toBeUndefined();
+    for (const v of ['2.5', 'abc']) expect(parseUnit(v, 5)).toBe(5);
   });
 
   it('generates next ids after the highest existing one', () => {

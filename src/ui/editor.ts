@@ -7,6 +7,7 @@ import {
   DEFAULT_ITEM_TYPES,
   occurrencePath,
   parseQty,
+  parseUnit,
   removeRelation,
   renameItem,
   updateItem,
@@ -33,7 +34,6 @@ function input(name: string, value: string | number | undefined, onCommit: (v: s
 const field = (label: string, control: HTMLElement) => h('label', {}, label, control);
 /** Codes and numbers in Geist Mono, matching the tree-table. */
 const mono = <T extends HTMLElement>(el: T): T => (el.classList.add('mono'), el);
-const optNumber = (v: string) => (v === '' ? undefined : Number(v));
 const NEW_TYPE = '\0new'; // select value of the "New type…" entry; cannot clash with a real type name
 
 /** Item type picker with a "New type…" entry that adds a type to the document via a dialog. */
@@ -136,8 +136,8 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
     h(
       'div',
       { className: 'row' },
-      field('Unit from', input('eff-uf', rel.eff.unitFrom, (v) => setEff({ unitFrom: optNumber(v) }), 'number')),
-      field('Unit to', Object.assign(input('eff-ut', rel.eff.unitTo, (v) => setEff({ unitTo: optNumber(v) }), 'number'), { placeholder: 'UP' })),
+      field('Unit from', input('eff-uf', rel.eff.unitFrom, (v) => setEff({ unitFrom: parseUnit(v, rel.eff.unitFrom) }), 'number')),
+      field('Unit to', Object.assign(input('eff-ut', rel.eff.unitTo, (v) => setEff({ unitTo: parseUnit(v, rel.eff.unitTo) }), 'number'), { placeholder: 'UP' })),
     ),
   ];
 }

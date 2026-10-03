@@ -196,6 +196,13 @@ export function parseQty(v: string, current: number): number {
   return v !== '' && Number.isFinite(n) && n >= 0 ? n : current;
 }
 
+/** Parses an edited effectivity unit; blank clears it (UP for unitTo), non-integer input keeps `current`. */
+export function parseUnit(v: string, current: number | undefined): number | undefined {
+  if (v === '') return undefined;
+  const n = Number(v);
+  return Number.isInteger(n) ? n : current;
+}
+
 export function updateRelation(bom: Bom, id: string, patch: Partial<Omit<Relation, 'id'>>): void {
   const rel = bom.relations.find((r) => r.id === id);
   if (rel) Object.assign(rel, patch);

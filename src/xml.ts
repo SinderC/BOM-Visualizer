@@ -51,7 +51,7 @@ export function parseXml(text: string): BomDocument {
 function parseRelation(r: Element): Relation {
   const id = req(r, 'id');
   const qty = Number(r.getAttribute('qty') ?? 1);
-  if (!Number.isFinite(qty)) throw new Error(`Relation ${id}: invalid qty`);
+  if (!Number.isFinite(qty) || qty < 0) throw new Error(`Relation ${id}: invalid qty`);
   const e = kids(r, 'effectivity')[0];
   const eff: Effectivity = {};
   if (e) {
