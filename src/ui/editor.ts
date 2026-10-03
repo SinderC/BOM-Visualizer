@@ -30,6 +30,8 @@ function input(name: string, value: string | number | undefined, onCommit: (v: s
 }
 
 const field = (label: string, control: HTMLElement) => h('label', {}, label, control);
+/** Codes and numbers in Geist Mono, matching the tree-table. */
+const mono = <T extends HTMLElement>(el: T): T => (el.classList.add('mono'), el);
 const optNumber = (v: string) => (v === '' ? undefined : Number(v));
 const NEW_TYPE = '\0new'; // select value of the "New type…" entry; cannot clash with a real type name
 
@@ -78,14 +80,14 @@ function itemSection(app: App, occ: Occurrence): HTMLElement[] {
   const description = h('textarea', { name: 'item-desc', value: item.description, rows: 2 });
   description.addEventListener('change', () => app.commit(() => updateItem(doc, item.id, { description: description.value })));
 
-  const id = input('item-id', item.id, (v) => {
+  const id = mono(input('item-id', item.id, (v) => {
     try {
       app.commit(() => renameItem(doc, item.id, v));
     } catch (e) {
       app.toast((e as Error).message, true);
       app.commit(); // restore the old id in the field
     }
-  });
+  }));
 
   const type = typeSelect(app, 'item-type', item.type, (t) => updateItem(doc, item.id, { type: t }));
 
@@ -118,8 +120,8 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
     h(
       'div',
       { className: 'row' },
-      field('Qty', input('rel-qty', rel.qty, (v) => set({ qty: Number(v) || rel.qty }), 'number')),
-      field('Find no.', input('rel-find', rel.findNo, (v) => set({ findNo: v }))),
+      field('Qty', mono(input('rel-qty', rel.qty, (v) => set({ qty: Number(v) || rel.qty }), 'number'))),
+      field('Find no.', mono(input('rel-find', rel.findNo, (v) => set({ findNo: v })))),
     ),
     field('Variant expression', expr),
     errors,
