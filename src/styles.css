@@ -1,3 +1,29 @@
+/*
+ * Geist (SIL OFL, licence in src/fonts) by Vercel, full variable font: fontsource's subset drops the disambiguation
+ * sets used below. Vendored rather than installed because the `geist` npm package requires Next.js as a peer. Bundled
+ * rather than loaded from a CDN so the single-file build works offline and from file://.
+ */
+@font-face {
+  font-family: Geist;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./fonts/Geist-Variable.woff2') format('woff2');
+}
+
+/* Geist Mono (SIL OFL), Latin subset, for the tree-table, expressions and addresses. Its default 0, 1 and l are
+   already distinct. Bundled for the same reason. */
+@font-face {
+  font-family: 'Geist Mono Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   --bg: #f6f7f9;
   --panel: #ffffff;
@@ -11,7 +37,8 @@
   --danger: #c93a3a;
   --ok: #2e8b57;
   --excluded: 0.4;
-  font: 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: 13px/1.4 Geist, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
   color-scheme: light;
 }
 
@@ -35,6 +62,12 @@
 * { box-sizing: border-box; }
 
 body {
+  /*
+   * Geist's alternates so I, l, 1 and 0 can't be confused (and match Geist Mono): ss03 l with tail, ss05 I with
+   * serifs, ss09 slashed 0 and 1 with base. Not on :root, because the minifier moves it before the `font` shorthand
+   * there, which resets it.
+   */
+  font-feature-settings: 'ss03', 'ss05', 'ss09';
   margin: 0;
   height: 100vh;
   display: grid;
@@ -43,7 +76,13 @@ body {
   color: var(--text);
 }
 
-.mono, textarea.mono, input.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.mono, .tree-table td {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  /* `!=` must read as two characters in variant expressions, whatever the font. Longhands only: the minifier may
+     move this before a `font` shorthand, which would reset it. */
+  font-variant-ligatures: none;
+}
 .muted { color: var(--muted); font-size: 12px; }
 
 #toolbar {
@@ -191,10 +230,9 @@ body.no-doc #tree .placeholder { display: block; }
 .tree-table .twisty { display: inline-block; width: 16px; color: var(--muted); cursor: pointer; text-align: center; margin-right: 4px; font-size: 15px; line-height: 1; }
 .tree-table .twisty.leaf { cursor: default; }
 .tree-table .twisty:hover:not(.leaf) { color: var(--accent); }
-.tree-table td.id { color: var(--muted); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.tree-table td.id { color: var(--muted); }
 .tree-table td.type { color: var(--muted); }
 .tree-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.tree-table td.expr, .tree-table td.eff { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .tree-table td.expr { color: var(--expr); }
 .tree-table td.eff { color: var(--eff); }
 .tree-table tr:not(.st-included) td { opacity: var(--excluded); }
