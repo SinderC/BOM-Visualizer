@@ -6,6 +6,7 @@ import {
   addRelation,
   DEFAULT_ITEM_TYPES,
   occurrencePath,
+  parseQty,
   removeRelation,
   renameItem,
   updateItem,
@@ -120,7 +121,7 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
     h(
       'div',
       { className: 'row' },
-      field('Qty', mono(input('rel-qty', rel.qty, (v) => set({ qty: Number(v) || rel.qty }), 'number'))),
+      field('Qty', mono(input('rel-qty', rel.qty, (v) => set({ qty: parseQty(v, rel.qty) }), 'number'))),
       field('Find no.', mono(input('rel-find', rel.findNo, (v) => set({ findNo: v })))),
     ),
     field('Variant expression', expr),

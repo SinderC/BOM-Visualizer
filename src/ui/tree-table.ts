@@ -1,7 +1,7 @@
 import { activeBom, h, openDoc, type App } from '../app';
 import { formatEff } from '../effectivity';
 import { validate } from '../expr';
-import { copyRelation, moveRelation, occurrencePath, renameItem, updateItem, updateRelation } from '../model';
+import { copyRelation, moveRelation, occurrencePath, parseQty, renameItem, updateItem, updateRelation } from '../model';
 import type { Occurrence } from '../resolve';
 import { typeSelect } from './editor';
 import { isColumnShown, isHideExcluded } from './view';
@@ -260,7 +260,7 @@ function cellSaver(app: App, occ: Occurrence, col: string): ((v: string) => void
     case 'type':
       return () => {}; // saved by the type picker
     case 'qty':
-      return setRel && ((v) => setRel({ qty: Number(v) || rel.qty }));
+      return setRel && ((v) => setRel({ qty: parseQty(v, rel.qty) }));
     case 'findNo':
       return setRel && ((v) => setRel({ findNo: v }));
     case 'variant':

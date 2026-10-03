@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addItem, addItemType, addRelation, copyRelation, createDocument, moveRelation, sortedChildren, nextId, removeRelation, renameItem, validateDocument } from './model';
+import { addItem, addItemType, addRelation, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, removeRelation, renameItem, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -10,6 +10,12 @@ function setup() {
 }
 
 describe('model', () => {
+  it('parseQty accepts zero and keeps the current qty for blank, non-numeric or negative input', () => {
+    expect(parseQty('0', 3)).toBe(0);
+    expect(parseQty('2.5', 3)).toBe(2.5);
+    for (const v of ['', 'abc', '-1']) expect(parseQty(v, 3)).toBe(3);
+  });
+
   it('generates next ids after the highest existing one', () => {
     expect(nextId('R', ['R1', 'R9', 'R10', 'X99'])).toBe('R11');
     expect(nextId('I', [])).toBe('I1');

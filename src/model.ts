@@ -190,6 +190,12 @@ export function addRelation(doc: BomDocument, bom: Bom, parentId: string, childI
   return rel;
 }
 
+/** Parses an edited qty; blank, non-numeric or negative input keeps `current`. Zero is valid. */
+export function parseQty(v: string, current: number): number {
+  const n = Number(v);
+  return v !== '' && Number.isFinite(n) && n >= 0 ? n : current;
+}
+
 export function updateRelation(bom: Bom, id: string, patch: Partial<Omit<Relation, 'id'>>): void {
   const rel = bom.relations.find((r) => r.id === id);
   if (rel) Object.assign(rel, patch);
