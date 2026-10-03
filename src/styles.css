@@ -75,6 +75,11 @@ body {
 .menu-list:popover-open { display: flex; flex-direction: column; }
 .menu-list button { border: 0; text-align: left; display: flex; justify-content: space-between; gap: 16px; }
 .menu-list button.active { background: var(--accent-soft); }
+.menu-list button.check-item { justify-content: flex-start; gap: 6px; }
+.menu-list .check { width: 1em; text-align: center; }
+.menu-list .arrow { margin-left: auto; padding-left: 16px; }
+.menu-list .submenu { display: contents; } /* trigger stays a full-width entry */
+.submenu:has(> .menu-list:popover-open) > button { background: var(--accent-soft); }
 .menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
 
 dialog {
@@ -158,9 +163,11 @@ button.icon { padding: 4px 8px; flex: 0 0 auto; }
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
 }
-/* Every column fits its widest cell; the last one takes the leftover width. */
+/* Every column fits its widest cell; an empty filler column takes the leftover width, whichever columns are hidden. */
 .tree-table th, .tree-table td { width: 1%; white-space: nowrap; }
-.tree-table th:last-child, .tree-table td:last-child { width: auto; }
+.tree-table .filler { width: auto; }
+/* :where() keeps this at zero specificity so hover and selection still win. */
+:where(:root[data-banded] .tree-table tbody tr:nth-child(even)) { background: color-mix(in srgb, var(--border) 30%, transparent); }
 .tree-table td { padding: 4px 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent); }
 .tree-table tbody tr { cursor: default; }
 .tree-table tbody tr:hover { background: color-mix(in srgb, var(--accent-soft) 50%, transparent); }

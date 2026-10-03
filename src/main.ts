@@ -9,6 +9,7 @@ import { renderEditor } from './ui/editor';
 import { storedShowConfig } from './ui/sidebar';
 import { renderToolbar } from './ui/toolbar';
 import { watchSystemTheme } from './ui/theme';
+import { applyView } from './ui/view';
 import { createTreeTable } from './ui/tree-table';
 import { parseXml, serializeXml } from './xml';
 
@@ -112,6 +113,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 watchSystemTheme();
+applyView();
 render();
 
 const restored = loadAutosave();

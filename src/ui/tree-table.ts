@@ -4,7 +4,16 @@ import { copyRelation, moveRelation, occurrencePath } from '../model';
 import type { Occurrence } from '../resolve';
 
 const INDENT = 18;
-const COLUMNS = ['Name', 'ID', 'Type', 'Qty', 'Find no.', 'Variant', 'Effectivity'];
+/** Keys are stored in view preferences, so keep them stable when labels change. */
+export const COLUMNS = [
+  { key: 'name', label: 'Name' },
+  { key: 'id', label: 'ID' },
+  { key: 'type', label: 'Type' },
+  { key: 'qty', label: 'Qty' },
+  { key: 'findNo', label: 'Find no.' },
+  { key: 'variant', label: 'Variant' },
+  { key: 'eff', label: 'Effectivity' },
+];
 
 /** Indented tree-table (structure-manager style) with collapse, selection and keyboard navigation. */
 export function createTreeTable(container: HTMLElement, app: App) {
@@ -13,7 +22,7 @@ export function createTreeTable(container: HTMLElement, app: App) {
   const table = h(
     'table',
     { className: 'tree-table', tabIndex: 0 },
-    h('thead', {}, h('tr', {}, ...COLUMNS.map((c) => h('th', {}, c)))),
+    h('thead', {}, h('tr', {}, ...COLUMNS.map((c) => h('th', {}, c.label)), h('th', { className: 'filler' }))),
     tbody,
   );
   container.append(table);
@@ -173,5 +182,6 @@ function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelec
     h('td', { className: 'num' }, rel?.findNo ?? ''),
     h('td', { className: 'expr', title: rel?.variantExpr ?? '' }, rel?.variantExpr ?? ''),
     h('td', { className: 'eff' }, eff),
+    h('td', { className: 'filler' }),
   );
 }

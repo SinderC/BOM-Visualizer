@@ -4,6 +4,8 @@ import { parseXml, serializeXml } from '../xml';
 import { showNewBomDialog } from './dialogs';
 import { storeShowConfig } from './sidebar';
 import { setThemePref, themePref, type ThemePref } from './theme';
+import { COLUMNS } from './tree-table';
+import { isBanded, isColumnShown, setBanded, setColumnShown } from './view';
 
 function button(label: string, title: string, onClick: () => void): HTMLButtonElement {
   const b = h('button', { title }, label);
@@ -11,19 +13,66 @@ function button(label: string, title: string, onClick: () => void): HTMLButtonEl
   return b;
 }
 
-/** Dropdown using the Popover API, which provides outside-click and Escape dismissal. */
-function menu(label: string, items: HTMLElement[]): HTMLElement {
+/**
+ * Menu list using the Popover API, which provides outside-click and Escape dismissal. Clicking an entry closes the
+ * menu unless the entry has `data-keep-open` (submenu triggers, toggles).
+ */
+function menuList(trigger: HTMLElement, items: HTMLElement[], place: 'below' | 'right'): HTMLElement {
   const list = h('div', { className: 'menu-list', popover: 'auto' }, ...items);
-  const trigger = h('button', { popoverTargetElement: list }, `${label} ▾`);
   list.addEventListener('beforetoggle', () => {
     const r = trigger.getBoundingClientRect();
-    list.style.left = `${r.left}px`;
-    list.style.top = `${r.bottom + 4}px`;
+    list.style.left = `${place === 'below' ? r.left : r.right + 2}px`;
+    list.style.top = `${place === 'below' ? r.bottom + 4 : r.top - 5}px`;
   });
   list.addEventListener('click', (e) => {
-    if ((e.target as Element).closest('button')) list.hidePopover();
+    const item = (e.target as Element).closest('button');
+    if (item && !('keepOpen' in item.dataset)) list.hidePopover();
   });
+  return list;
+}
+
+function menu(label: string, items: HTMLElement[]): HTMLElement {
+  const trigger = h('button', {}, `${label} ▾`);
+  const list = menuList(trigger, items, 'below');
+  trigger.popoverTargetElement = list;
   return h('span', {}, trigger, list);
+}
+
+/**
+ * Entry that opens a nested menu to its right, on hover or click. Nested in the parent list so both stay open.
+ * Has an empty check column so its label lines up with check items in the same menu.
+ */
+function submenu(label: string, items: HTMLElement[]): HTMLElement {
+  const trigger = h(
+    'button',
+    { className: 'check-item', dataset: { keepOpen: '' } },
+    h('span', { className: 'check' }),
+    h('span', {}, label),
+    h('span', { className: 'muted arrow' }, '▸'),
+  );
+  const list = menuList(trigger, items, 'right');
+  const open = () => list.matches(':popover-open') || list.showPopover();
+  trigger.addEventListener('click', open);
+  trigger.addEventListener('mouseenter', open);
+  return h('span', { className: 'submenu' }, trigger, list);
+}
+
+/** Entry with a check mark column on the left, as in native menus. */
+function checkItem(label: string, checked: boolean, title: string, onClick: () => void): HTMLButtonElement {
+  const item = button('', title, onClick);
+  item.classList.add('check-item');
+  item.append(h('span', { className: 'check' }, checked ? '✓' : ''), h('span', {}, label));
+  return item;
+}
+
+/** Check item that flips a view setting in place, keeping the menu open. */
+function toggleItem(label: string, title: string, get: () => boolean, set: (on: boolean) => void): HTMLButtonElement {
+  const item = checkItem(label, get(), title, () => {
+    set(!get());
+    item.querySelector('.check')!.textContent = get() ? '✓' : '';
+  });
+  item.dataset.keepOpen = '';
+  return item;
 }
 
 // File System Access API (Chromium only); not yet in TypeScript's DOM lib.
@@ -139,7 +188,7 @@ export function renderToolbar(container: HTMLElement, app: App): void {
         showNewBomDialog((name, type) => switchBom(app, addBom(state.doc, name, type).id)),
       ),
     ]),
-    menu('Theme', themeItems(app)),
+    menu('View', viewItems(app)),
     h('span', { className: 'sep' }),
     bomName,
     h('span', { className: 'muted file-name' }, state.fileName),
@@ -164,17 +213,28 @@ function editItems(app: App): HTMLButtonElement[] {
   return [undo, redo];
 }
 
+function viewItems(app: App): HTMLElement[] {
+  const columns = COLUMNS.map((c) =>
+    toggleItem(c.label, `Show or hide the ${c.label} column`, () => isColumnShown(c.key), (on) => setColumnShown(c.key, on)),
+  );
+  // Name holds the tree (indentation, expand/collapse, drag handle), so it is always shown.
+  columns[0].disabled = true;
+  return [
+    submenu('Theme', themeItems(app)),
+    submenu('Columns', columns),
+    toggleItem('Banded rows', 'Shade every other row', isBanded, setBanded),
+  ];
+}
+
 function themeItems(app: App): HTMLButtonElement[] {
   const labels: Record<ThemePref, string> = { system: 'System', light: 'Light', dark: 'Dark' };
-  return Object.entries(labels).map(([value, label]) => {
-    // Re-render so the toolbar highlights the new choice.
-    const item = button(label, `Use the ${label.toLowerCase()} color theme`, () => {
+  return Object.entries(labels).map(([value, label]) =>
+    // Re-render so the menu shows the new choice.
+    checkItem(label, value === themePref(), `Use the ${label.toLowerCase()} color theme`, () => {
       setThemePref(value as ThemePref);
       app.commit();
-    });
-    item.classList.toggle('active', value === themePref());
-    return item;
-  });
+    }),
+  );
 }
 
 function switchBom(app: App, bomId: string): void {
