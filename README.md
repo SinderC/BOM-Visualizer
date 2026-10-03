@@ -1,0 +1,52 @@
+# BOM Visualizer
+
+Lightweight browser sandbox for trying out BOM concepts: multi-level structures, **variant expressions** and **effectivity** on parent→child relations, shown as an indented tree-table. Runs fully offline.
+
+![Tree-table with variant-excluded rows dimmed](docs/screenshot.png)
+
+## Features
+
+- Several BOMs per document (e.g. EBOM + MBOM) sharing items and option families.
+- Variant expressions on relations: `ENGINE=V8 AND (MARKET=EU OR TRIM IN (BASE, SPORT))`, with live validation.
+- Effectivity on relations: date range and unit range, open-ended bounds.
+- Configuration panel: pick option values, date and unit; excluded rows are dimmed and struck through (hover for the reason).
+- File-tree style structure with Qty / Find no / Variant / Effectivity columns: click ▸/▾ to collapse, click a row to edit, ↑/↓ to move, ←/→ to collapse/expand.
+- Theme: System (default, follows the OS live), Light or Dark; the choice is remembered in localStorage.
+- Open/save as XML — see [docs/schema.md](docs/schema.md).
+
+## Use
+
+- **Online:** GitHub Pages (see Deploy below).
+- **Offline:** `npm run build`, then open `dist/index.html` directly — it is a single self-contained file (JS and CSS inlined), so it works from `file://` and can be copied anywhere.
+
+## Develop
+
+Requires Node (version in `.nvmrc`).
+
+```sh
+npm install
+npm run dev        # dev server with hot reload
+npm test           # unit tests (Vitest)
+npm run typecheck
+npm run build      # -> dist/index.html
+```
+
+Code map:
+
+| Path | Role |
+|---|---|
+| `src/model.ts` | Data model, mutators, occurrence addresses, document validation |
+| `src/expr.ts` | Variant expression parser / validator / evaluator |
+| `src/effectivity.ts` | Date / unit effectivity |
+| `src/resolve.ts` | Expands a BOM into occurrences and applies the configuration |
+| `src/xml.ts` | XML read / write |
+| `src/ui/*` | Tree-table, config panel, editor, toolbar |
+| `src/samples/car.xml` | Sample loaded on start |
+
+## Deploy
+
+The workflow in `.github/workflows/deploy.yml` type-checks, tests, builds and deploys on every push to `main`. One-time setup: **Settings → Pages → Source: GitHub Actions**.
+
+## Roadmap
+
+See [docs/suggested-features.md](docs/suggested-features.md) — BOM alignment visualization is the next planned feature.

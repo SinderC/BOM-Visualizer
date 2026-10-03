@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BOM Visualizer</title>
+    <script>
+      // Apply the theme before first paint. Key must match THEME_KEY in src/ui/theme.ts.
+      (function () {
+        var stored;
+        try {
+          stored = localStorage.getItem('bom-visualizer.theme');
+        } catch (e) {}
+        var dark = stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      })();
+    </script>
+  </head>
+  <body>
+    <header id="toolbar"></header>
+    <main>
+      <aside id="config-panel"></aside>
+      <section id="tree"></section>
+      <aside id="editor"></aside>
+    </main>
+    <div id="toast" hidden></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

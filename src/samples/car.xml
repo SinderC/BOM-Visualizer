@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bomDocument version="1">
+  <optionFamilies>
+    <family name="ENGINE"><value>V6</value><value>V8</value><value>EV</value></family>
+    <family name="MARKET"><value>EU</value><value>US</value></family>
+    <family name="TRIM"><value>BASE</value><value>SPORT</value></family>
+  </optionFamilies>
+  <items>
+    <item id="I1" name="Car" description="Concept vehicle"/>
+    <item id="I2" name="Body"/>
+    <item id="I3" name="Powertrain"/>
+    <item id="I4" name="V6 Engine"/>
+    <item id="I5" name="V8 Engine"/>
+    <item id="I6" name="Electric Motor"/>
+    <item id="I7" name="Battery Pack"/>
+    <item id="I8" name="Gearbox"/>
+    <item id="I9" name="Wheel"/>
+    <item id="I10" name="Seat"/>
+    <item id="I11" name="Sport Seat"/>
+    <item id="I12" name="Bolt M8" description="Reused in several places"/>
+    <item id="I13" name="Emission Kit EU"/>
+    <item id="I14" name="Emission Kit US"/>
+    <item id="I15" name="Chassis"/>
+    <item id="I16" name="Interior"/>
+    <item id="I20" name="Body Shop" description="Manufacturing station"/>
+    <item id="I21" name="Powertrain Line" description="Manufacturing station"/>
+    <item id="I22" name="Final Assembly" description="Manufacturing station"/>
+  </items>
+  <bom id="EBOM" name="Engineering BOM" root="I1">
+    <relations>
+      <relation id="R1" parent="I1" child="I2" qty="1" findNo="10"/>
+      <relation id="R2" parent="I1" child="I15" qty="1" findNo="20"/>
+      <relation id="R3" parent="I1" child="I3" qty="1" findNo="30"/>
+      <relation id="R4" parent="I1" child="I16" qty="1" findNo="40"/>
+      <relation id="R5" parent="I3" child="I4" qty="1" findNo="10">
+        <variant>ENGINE=V6</variant>
+        <effectivity dateTo="2027-06-30"/>
+      </relation>
+      <relation id="R6" parent="I3" child="I5" qty="1" findNo="20">
+        <variant>ENGINE=V8 AND MARKET=US</variant>
+      </relation>
+      <relation id="R7" parent="I3" child="I6" qty="1" findNo="30">
+        <variant>ENGINE=EV</variant>
+        <effectivity dateFrom="2026-09-01"/>
+      </relation>
+      <relation id="R8" parent="I3" child="I7" qty="1" findNo="40">
+        <variant>ENGINE=EV</variant>
+        <effectivity unitFrom="100"/>
+      </relation>
+      <relation id="R9" parent="I3" child="I8" qty="1" findNo="50">
+        <variant>NOT ENGINE=EV</variant>
+      </relation>
+      <relation id="R15" parent="I3" child="I13" qty="1" findNo="60">
+        <variant>MARKET=EU AND ENGINE!=EV</variant>
+      </relation>
+      <relation id="R16" parent="I3" child="I14" qty="1" findNo="70">
+        <variant>MARKET=US AND ENGINE!=EV</variant>
+        <effectivity unitFrom="1" unitTo="499"/>
+      </relation>
+      <relation id="R10" parent="I15" child="I9" qty="4" findNo="10"/>
+      <relation id="R11" parent="I9" child="I12" qty="5" findNo="10"/>
+      <relation id="R12" parent="I2" child="I12" qty="24" findNo="10"/>
+      <relation id="R13" parent="I16" child="I10" qty="5" findNo="10">
+        <variant>TRIM=BASE</variant>
+      </relation>
+      <relation id="R14" parent="I16" child="I11" qty="5" findNo="20">
+        <variant>TRIM=SPORT AND ENGINE IN (V8, EV)</variant>
+      </relation>
+    </relations>
+  </bom>
+  <bom id="MBOM" name="Manufacturing BOM" root="I1">
+    <relations>
+      <relation id="R20" parent="I1" child="I20" qty="1" findNo="10"/>
+      <relation id="R21" parent="I20" child="I2" qty="1" findNo="10"/>
+      <relation id="R22" parent="I1" child="I21" qty="1" findNo="20"/>
+      <relation id="R23" parent="I21" child="I4" qty="1" findNo="10">
+        <variant>ENGINE=V6</variant>
+      </relation>
+      <relation id="R24" parent="I21" child="I5" qty="1" findNo="20">
+        <variant>ENGINE=V8</variant>
+      </relation>
+      <relation id="R25" parent="I21" child="I6" qty="1" findNo="30">
+        <variant>ENGINE=EV</variant>
+      </relation>
+      <relation id="R26" parent="I1" child="I22" qty="1" findNo="30"/>
+      <relation id="R27" parent="I22" child="I9" qty="4" findNo="10"/>
+      <relation id="R28" parent="I22" child="I10" qty="5" findNo="20">
+        <variant>TRIM=BASE</variant>
+      </relation>
+    </relations>
+  </bom>
+  <alignments>
+    <alignment id="A1" source="EBOM:R3/R5" target="MBOM:R22/R23"/>
+    <alignment id="A2" source="EBOM:R2/R10" target="MBOM:R26/R27"/>
+  </alignments>
+</bomDocument>
