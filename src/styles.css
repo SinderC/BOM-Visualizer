@@ -212,7 +212,8 @@ body.no-doc #tree .placeholder { display: block; }
   font-size: 12px;
   color: var(--muted);
   padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
+  /* A border would stay behind when the sticky header scrolls (border-collapse); a shadow moves with it. */
+  box-shadow: inset 0 -1px var(--border);
 }
 /* Every column fits its widest cell; an empty filler column takes the leftover width, whichever columns are hidden. */
 .tree-table th, .tree-table td { width: 1%; white-space: nowrap; }
@@ -230,10 +231,10 @@ body.no-doc #tree .placeholder { display: block; }
 .tree-table .twisty { display: inline-block; width: 16px; color: var(--muted); cursor: pointer; text-align: center; margin-right: 4px; font-size: 15px; line-height: 1; }
 .tree-table .twisty.leaf { cursor: default; }
 .tree-table .twisty:hover:not(.leaf) { color: var(--accent); }
-.tree-table td.id { color: var(--muted); }
-.tree-table td.type { color: var(--muted); }
 .tree-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .tree-table td.expr { color: var(--expr); }
+/* Table cells ignore max-width, so the expression is clipped in an inner span; the cell's title shows it in full. */
+.tree-table td.expr > span { display: inline-block; max-width: 48ch; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 .tree-table td.eff { color: var(--eff); }
 .tree-table tr:not(.st-included) td { opacity: var(--excluded); }
 .tree-table tr:not(.st-included) td.name > span:nth-child(2) { text-decoration: line-through; }

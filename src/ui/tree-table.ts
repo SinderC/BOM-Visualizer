@@ -180,7 +180,7 @@ function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelec
     h('td', { className: 'type' }, occ.item.type ?? ''),
     h('td', { className: 'num' }, rel ? String(rel.qty) : ''),
     h('td', { className: 'num' }, rel?.findNo ?? ''),
-    h('td', { className: 'expr', title: rel?.variantExpr ?? '' }, rel?.variantExpr ?? ''),
+    h('td', { className: 'expr', title: rel?.variantExpr ?? '' }, h('span', {}, rel?.variantExpr ?? '')),
     h('td', { className: 'eff' }, eff),
     h('td', { className: 'filler' }),
   );
