@@ -32,6 +32,10 @@ export function createHistory(save: () => string, restore: (snapshot: string) =>
       redoStack = [];
       current = save();
     },
+    /** Snapshot of the current document, as of the last record/undo/redo/reset. */
+    get snapshot() {
+      return current;
+    },
     get canUndo() {
       return undoStack.length > 0;
     },

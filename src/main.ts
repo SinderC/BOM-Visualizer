@@ -1,5 +1,6 @@
 import './styles.css';
 import { activeBom, type App, type State } from './app';
+import { loadAutosave, writeAutosave } from './autosave';
 import { createHistory } from './history';
 import { resolve, type Occurrence } from './resolve';
 import sample from './samples/car.xml?raw';
@@ -27,6 +28,8 @@ const history = createHistory(
   () => serializeXml(state.doc),
   (snapshot) => (state.doc = parseXml(snapshot)),
 );
+let saved = { snapshot: history.snapshot, fileName: state.fileName }; // last autosaved state
+let autosaveFailed = false;
 let renderQueued = false;
 let toastTimer: number | undefined;
 
@@ -35,6 +38,7 @@ const app: App = {
   commit(mutate) {
     mutate?.();
     history.record();
+    autosave();
     // Deferred so that focus has moved (e.g. Tab after a change event) before panels are rebuilt.
     if (!renderQueued) {
       renderQueued = true;
@@ -62,6 +66,16 @@ const app: App = {
   history,
   occurrence: (address) => (address === undefined ? undefined : index.get(address)),
 };
+
+/** Writes the document to localStorage when it or its file name changed; reports a failure once. */
+function autosave(): void {
+  const current = { snapshot: history.snapshot, fileName: state.fileName };
+  if (current.snapshot === saved.snapshot && current.fileName === saved.fileName) return;
+  const error = writeAutosave({ fileName: current.fileName, xml: current.snapshot });
+  if (error && !autosaveFailed) app.toast(`Autosave failed: ${error}`, true);
+  autosaveFailed = !!error;
+  if (!error) saved = current;
+}
 
 const treeTable = createTreeTable($('tree'), app);
 
@@ -99,3 +113,13 @@ document.addEventListener('keydown', (e) => {
 
 watchSystemTheme();
 render();
+
+const restored = loadAutosave();
+if (restored) {
+  try {
+    app.loadDocument(parseXml(restored.xml), restored.fileName);
+    app.toast(`Restored ${restored.fileName} from autosave`);
+  } catch (e) {
+    app.toast(`Could not restore autosave: ${(e as Error).message}`, true);
+  }
+}

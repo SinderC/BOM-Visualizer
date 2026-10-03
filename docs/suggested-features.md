@@ -15,9 +15,6 @@ Deliberately left out of the first version. Each entry notes what is already in 
 ## 3. Revisions and revision rules
 **What:** Item revisions, with a rule such as "latest released" or "as of date" selecting which revision each occurrence resolves to.
 
-## 6. Autosave to localStorage
-**What:** Keep the working document across reloads; offer restore on start.
-
 ## 7. Large-BOM rendering
 **What:** Virtualized rows (render only what is scrolled into view) once trees exceed ~5k visible rows; a full DOM table slows down beyond that.
 
