@@ -2,7 +2,8 @@ import { COLUMNS } from './tree-table';
 
 /**
  * View options remembered in localStorage: side panels, banded rows and tree-table columns (applied with CSS, so
- * toggling needs no re-render), and whether the configuration is applied (read into state at start).
+ * toggling needs no re-render), whether the configuration is applied (read into state at start) and whether rows it
+ * excludes are hidden (read by the tree-table when rendering).
  */
 const VIEW_KEY = 'bom-visualizer.view';
 
@@ -13,6 +14,7 @@ interface ViewPrefs {
   hiddenColumns: string[]; // column keys
   hiddenPanels: Panel[];
   applyConfig: boolean;
+  hideExcluded: boolean;
 }
 
 const list = <T>(v: unknown): T[] => (Array.isArray(v) ? v : []);
@@ -25,10 +27,11 @@ function readStored(): ViewPrefs {
       hiddenColumns: list(v.hiddenColumns),
       hiddenPanels: list(v.hiddenPanels),
       applyConfig: v.applyConfig !== false,
+      hideExcluded: !!v.hideExcluded,
     };
   } catch {
     // Storage unavailable or corrupt: defaults.
-    return { banded: false, hiddenColumns: [], hiddenPanels: [], applyConfig: true };
+    return { banded: false, hiddenColumns: [], hiddenPanels: [], applyConfig: true, hideExcluded: false };
   }
 }
 
@@ -81,5 +84,12 @@ export const isApplyConfig = () => prefs.applyConfig;
 
 export function setApplyConfig(apply: boolean): void {
   prefs.applyConfig = apply;
+  store();
+}
+
+export const isHideExcluded = () => prefs.hideExcluded;
+
+export function setHideExcluded(hide: boolean): void {
+  prefs.hideExcluded = hide;
   store();
 }

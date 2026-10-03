@@ -4,7 +4,7 @@ import { validate } from '../expr';
 import { copyRelation, moveRelation, occurrencePath, renameItem, updateItem, updateRelation } from '../model';
 import type { Occurrence } from '../resolve';
 import { typeSelect } from './editor';
-import { isColumnShown } from './view';
+import { isColumnShown, isHideExcluded } from './view';
 
 const INDENT = 18;
 /** Keys are stored in view preferences, so keep them stable when labels change. */
@@ -210,7 +210,10 @@ export function createTreeTable(container: HTMLElement, app: App) {
     const { collapsed, selected } = app.state;
     visible = [];
     const rows: HTMLTableRowElement[] = [];
+    // Excluded rows only exist while the configuration is applied; their children are excluded too.
+    const hideExcluded = isHideExcluded();
     const walk = (occ: Occurrence, depth: number) => {
+      if (hideExcluded && occ.status !== 'included') return;
       visible.push(occ);
       const isCollapsed = collapsed.has(occ.address);
       rows.push(renderRow(occ, depth, isCollapsed, occ.address === selected));

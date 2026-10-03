@@ -4,7 +4,17 @@ import { parseXml, serializeXml } from '../xml';
 import { showNewBomDialog, showUnsavedChangesDialog } from './dialogs';
 import { setThemePref, themePref, type ThemePref } from './theme';
 import { COLUMNS } from './tree-table';
-import { isBanded, isColumnShown, isPanelShown, setBanded, setColumnShown, setPanelShown, type Panel } from './view';
+import {
+  isBanded,
+  isColumnShown,
+  isHideExcluded,
+  isPanelShown,
+  setBanded,
+  setColumnShown,
+  setHideExcluded,
+  setPanelShown,
+  type Panel,
+} from './view';
 
 function button(label: string, title: string, onClick: () => void): HTMLButtonElement {
   const b = h('button', { title }, label);
@@ -262,6 +272,10 @@ function viewItems(app: App): HTMLElement[] {
     submenu('Theme', themeItems(app)),
     submenu('Columns', columns),
     toggleItem('Banded rows', 'Shade every other row', isBanded, setBanded),
+    // Re-render: the tree-table leaves hidden rows out rather than hiding them with CSS.
+    toggleItem('Hide excluded rows', 'Hide rows the applied configuration excludes', isHideExcluded, (on) =>
+      app.commit(() => setHideExcluded(on)),
+    ),
     h('hr'),
     panel('config', 'Configuration', 'Show or hide the configuration panel'),
     panel('editor', 'Editor', 'Show or hide the editor panel'),
