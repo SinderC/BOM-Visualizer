@@ -236,6 +236,7 @@ body.no-doc #tree .placeholder { display: block; }
 /* Table cells ignore max-width, so the expression is clipped in an inner span; the cell's title shows it in full. */
 .tree-table td.expr > span { display: inline-block; max-width: 48ch; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 .tree-table td.eff { color: var(--eff); }
+.tree-table .cell-edit { margin: -3px -5px; padding: 2px 4px; text-align: inherit; max-width: none; }
 .tree-table tr:not(.st-included) td { opacity: var(--excluded); }
 .tree-table tr:not(.st-included) td.name > span:nth-child(2) { text-decoration: line-through; }
 

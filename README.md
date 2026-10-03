@@ -11,7 +11,7 @@ Lightweight browser sandbox for trying out BOM concepts: multi-level structures,
 - Variant expressions on relations: `ENGINE=V8 AND (MARKET=EU OR TRIM IN (BASE, SPORT))`, with live validation.
 - Effectivity on relations: date range and unit range, open-ended bounds.
 - Configuration panel: pick option values, date and unit; excluded rows are dimmed and struck through (hover for the reason).
-- File-tree style structure with ID / Type / Qty / Find no. / Variant / Effectivity columns: click ▸/▾ to collapse, click a row to edit, ↑/↓ to move, ←/→ to collapse/expand.
+- File-tree style structure with ID / Type / Qty / Find no. / Variant / Effectivity columns: click ▸/▾ to collapse, click a row to edit, double-click a cell (except Effectivity) to edit it in place (Enter saves, Esc cancels, Tab / Shift+Tab moves to the next cell right / left), ↑/↓ to move, ←/→ to collapse/expand.
 - Drag and drop rows: onto a row to make it the parent, onto a row's top/bottom edge to place before/after it (find number is set in between, renumbering siblings only when there is no gap). Hold Ctrl or Alt/Option when dropping to copy instead of move. Qty, variant and effectivity are kept; cycles are rejected. Children are shown sorted by find number.
 - Undo / redo of document edits (Edit menu, Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z, Ctrl+Y); up to 100 steps, cleared on New/Open. Configuration, selection and collapse are not undo steps.
 - Autosave: every document change is kept in localStorage and restored on the next start. New/Open replace it. The link to the file on disk is not kept, so the first Save after a reload asks where to save.

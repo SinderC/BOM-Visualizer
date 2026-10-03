@@ -36,7 +36,7 @@ const optNumber = (v: string) => (v === '' ? undefined : Number(v));
 const NEW_TYPE = '\0new'; // select value of the "New type…" entry; cannot clash with a real type name
 
 /** Item type picker with a "New type…" entry that adds a type to the document via a dialog. */
-function typeSelect(app: App, name: string, value: string | undefined, onPick: (type: string | undefined) => void): HTMLSelectElement {
+export function typeSelect(app: App, name: string, value: string | undefined, onPick: (type: string | undefined) => void): HTMLSelectElement {
   const doc = openDoc(app.state);
   const select = h(
     'select',

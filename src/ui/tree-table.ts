@@ -1,7 +1,10 @@
 import { activeBom, h, openDoc, type App } from '../app';
 import { formatEff } from '../effectivity';
-import { copyRelation, moveRelation, occurrencePath } from '../model';
+import { validate } from '../expr';
+import { copyRelation, moveRelation, occurrencePath, renameItem, updateItem, updateRelation } from '../model';
 import type { Occurrence } from '../resolve';
+import { typeSelect } from './editor';
+import { isColumnShown } from './view';
 
 const INDENT = 18;
 /** Keys are stored in view preferences, so keep them stable when labels change. */
@@ -38,6 +41,61 @@ export function createTreeTable(container: HTMLElement, app: App) {
     if (target.closest('.twisty')) setCollapsed(address, !app.state.collapsed.has(address));
     else select(address);
   });
+
+  // Double-click a cell to edit its value in place. Enter or leaving the field saves, Escape cancels,
+  // Tab / Shift+Tab saves and edits the next editable cell to the right / left.
+  table.addEventListener('dblclick', (e) => {
+    const target = e.target as HTMLElement;
+    const td = target.closest('td');
+    const address = td?.closest('tr')?.dataset.address;
+    const col = td?.dataset.col;
+    // Deferred past the re-render queued by the first click's selection, which would replace the cell.
+    if (address && col && !target.closest('.twisty, input, select')) setTimeout(() => startEdit(address, col));
+  });
+
+  function startEdit(address: string, col: string): void {
+    const occ = app.occurrence(address);
+    const td = tbody.querySelector<HTMLElement>(`tr[data-address="${CSS.escape(address)}"] td[data-col="${col}"]`);
+    const save = occ && cellSaver(app, occ, col);
+    if (!td || !save) return;
+    td.closest('tr')!.draggable = false; // so dragging selects text in the field
+    // The name cell keeps its indent and twisty.
+    const host = col === 'name' ? (td.lastElementChild as HTMLElement) : td;
+    const width = `${Math.max(host.offsetWidth + 16, 80)}px`;
+    const done = () => table.focus(); // blurs the field, which saves or restores it
+    const keydown = (ke: KeyboardEvent, cancel?: () => void) => {
+      ke.stopPropagation(); // keep arrows and undo for the field
+      if (ke.key === 'Escape') cancel?.();
+      if (ke.key === 'Escape' || ke.key === 'Enter') done();
+      if (ke.key !== 'Tab') return;
+      ke.preventDefault();
+      const next = nextEditable(app, occ, col, ke.shiftKey ? -1 : 1);
+      done();
+      if (next) setTimeout(() => startEdit(address, next)); // after the save's re-render
+    };
+
+    if (col === 'type') {
+      const picker = typeSelect(app, '', occ.item.type, (t) => updateItem(openDoc(app.state), occ.item.id, { type: t }));
+      picker.addEventListener('keydown', (ke) => keydown(ke));
+      picker.addEventListener('change', done);
+      picker.addEventListener('blur', () => app.commit()); // restores the cell when nothing was picked
+      return edit(host, picker, width);
+    }
+
+    const field = h('input', { className: 'mono', value: host.textContent ?? '', spellcheck: false });
+    let cancelled = false;
+    field.addEventListener('keydown', (ke) => keydown(ke, () => (cancelled = true)));
+    field.addEventListener('blur', () => {
+      try {
+        app.commit(cancelled ? undefined : () => save(field.value.trim()));
+      } catch (err) {
+        app.toast((err as Error).message, true);
+        app.commit(); // restore the old value
+      }
+    });
+    edit(host, field, width);
+    field.select();
+  }
 
   // Drag a row onto another row to make it a child there, or onto a row's top/bottom edge to place it before/after
   // that row as a sibling. Holding Ctrl or Alt/Option when dropping copies the relation instead of moving it.
@@ -159,12 +217,56 @@ export function createTreeTable(container: HTMLElement, app: App) {
   return { render };
 }
 
+function edit(host: HTMLElement, control: HTMLInputElement | HTMLSelectElement, width: string): void {
+  control.classList.add('cell-edit');
+  control.style.width = width;
+  host.replaceChildren(control);
+  control.focus();
+}
+
+/** The nearest shown column after `col` in direction `step` that can be edited in place on this row. */
+function nextEditable(app: App, occ: Occurrence, col: string, step: 1 | -1): string | undefined {
+  const keys = COLUMNS.map((c) => c.key);
+  for (let i = keys.indexOf(col) + step; i >= 0 && i < keys.length; i += step) {
+    if (isColumnShown(keys[i]) && cellSaver(app, occ, keys[i])) return keys[i];
+  }
+}
+
+/** Saves an edited cell's text, or undefined when the column cannot be edited in place on this row. Runs inside a commit. */
+function cellSaver(app: App, occ: Occurrence, col: string): ((v: string) => void) | undefined {
+  const doc = openDoc(app.state);
+  const item = occ.item;
+  const rel = occ.relation;
+  const setRel = rel && ((patch: Parameters<typeof updateRelation>[2]) => updateRelation(activeBom(app.state), rel.id, patch));
+  switch (col) {
+    case 'name':
+      return (v) => updateItem(doc, item.id, { name: v || item.name });
+    case 'id':
+      return (v) => renameItem(doc, item.id, v);
+    case 'type':
+      return () => {}; // saved by the type picker
+    case 'qty':
+      return setRel && ((v) => setRel({ qty: Number(v) || rel.qty }));
+    case 'findNo':
+      return setRel && ((v) => setRel({ findNo: v }));
+    case 'variant':
+      return (
+        setRel &&
+        ((v) => {
+          setRel({ variantExpr: v });
+          const [error] = validate(v, doc.families);
+          if (error) app.toast(`Variant expression, col ${error.pos + 1}: ${error.message}`, true);
+        })
+      );
+  }
+}
+
 function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelected: boolean): HTMLTableRowElement {
   const rel = occ.relation;
   const twisty = occ.children.length
     ? h('span', { className: 'twisty', title: isCollapsed ? `Expand (${occ.children.length})` : 'Collapse' }, isCollapsed ? '▸' : '▾')
     : h('span', { className: 'twisty leaf' });
-  const name = h('td', { className: 'name' }, twisty, h('span', {}, occ.item.name));
+  const name = h('td', { className: 'name', dataset: { col: 'name' } }, twisty, h('span', {}, occ.item.name));
   name.style.paddingLeft = `${6 + depth * INDENT}px`;
   const eff = rel ? formatEff(rel.eff) : '';
   return h(
@@ -176,11 +278,11 @@ function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelec
       dataset: { address: occ.address },
     },
     name,
-    h('td', { className: 'id' }, occ.item.id),
-    h('td', { className: 'type' }, occ.item.type ?? ''),
-    h('td', { className: 'num' }, rel ? String(rel.qty) : ''),
-    h('td', { className: 'num' }, rel?.findNo ?? ''),
-    h('td', { className: 'expr', title: rel?.variantExpr ?? '' }, h('span', {}, rel?.variantExpr ?? '')),
+    h('td', { className: 'id', dataset: { col: 'id' } }, occ.item.id),
+    h('td', { className: 'type', dataset: { col: 'type' } }, occ.item.type ?? ''),
+    h('td', { className: 'num', dataset: { col: 'qty' } }, rel ? String(rel.qty) : ''),
+    h('td', { className: 'num', dataset: { col: 'findNo' } }, rel?.findNo ?? ''),
+    h('td', { className: 'expr', title: rel?.variantExpr ?? '', dataset: { col: 'variant' } }, h('span', {}, rel?.variantExpr ?? '')),
     h('td', { className: 'eff' }, eff),
     h('td', { className: 'filler' }),
   );
