@@ -2,6 +2,7 @@ import { activeBom, h, type App } from '../app';
 import { addBom, createDocument } from '../model';
 import { parseXml, serializeXml } from '../xml';
 import { showNewBomDialog } from './bom-dialog';
+import { storeShowConfig } from './sidebar';
 import { setThemePref, themePref, type ThemePref } from './theme';
 
 function button(label: string, title: string, onClick: () => void): HTMLButtonElement {
@@ -110,7 +111,15 @@ export function renderToolbar(container: HTMLElement, app: App): void {
   const bomName = h('input', { name: 'bom-name', value: bom.name, title: 'BOM name' });
   bomName.addEventListener('change', () => app.commit(() => (bom.name = bomName.value.trim() || bom.name)));
 
+  const sidebarToggle = button('☰', 'Show or hide the configuration sidebar', () =>
+    app.commit(() => storeShowConfig((state.showConfig = !state.showConfig))),
+  );
+  sidebarToggle.classList.add('icon');
+  sidebarToggle.classList.toggle('active', state.showConfig);
+  sidebarToggle.setAttribute('aria-pressed', String(state.showConfig));
+
   container.replaceChildren(
+    sidebarToggle,
     h('strong', { className: 'brand' }, 'BOM Visualizer'),
     menu('File', [
       button('New', 'Start an empty document', () => {
@@ -129,22 +138,24 @@ export function renderToolbar(container: HTMLElement, app: App): void {
         showNewBomDialog((name, type) => switchBom(app, addBom(state.doc, name, type).id)),
       ),
     ]),
+    menu('Theme', themeItems(app)),
     h('span', { className: 'sep' }),
     bomName,
     h('span', { className: 'muted file-name' }, state.fileName),
-    h('label', { className: 'inline' }, 'Theme', themeSelect()),
   );
 }
 
-function themeSelect(): HTMLSelectElement {
+function themeItems(app: App): HTMLButtonElement[] {
   const labels: Record<ThemePref, string> = { system: 'System', light: 'Light', dark: 'Dark' };
-  const select = h(
-    'select',
-    { name: 'theme', title: 'Color theme' },
-    ...Object.entries(labels).map(([value, label]) => h('option', { value, selected: value === themePref() }, label)),
-  );
-  select.addEventListener('change', () => setThemePref(select.value as ThemePref));
-  return select;
+  return Object.entries(labels).map(([value, label]) => {
+    // Re-render so the toolbar highlights the new choice.
+    const item = button(label, `Use the ${label.toLowerCase()} color theme`, () => {
+      setThemePref(value as ThemePref);
+      app.commit();
+    });
+    item.classList.toggle('active', value === themePref());
+    return item;
+  });
 }
 
 function switchBom(app: App, bomId: string): void {

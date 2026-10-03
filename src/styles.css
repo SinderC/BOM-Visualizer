@@ -59,6 +59,7 @@ body {
 #toolbar .sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
 #toolbar .file-name { margin-left: auto; }
 #toolbar input[name='bom-name'] { width: 180px; }
+#toolbar button.active { background: var(--accent-soft); }
 .menu-list {
   position: fixed;
   inset: auto;
@@ -93,6 +94,7 @@ main {
   grid-template-columns: 260px 1fr 330px;
   min-height: 0;
 }
+main:has(> #config-panel[hidden]) { grid-template-columns: 1fr 330px; }
 
 aside {
   background: var(--panel);

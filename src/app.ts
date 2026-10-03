@@ -8,6 +8,7 @@ export interface State {
   ctx: ConfigContext;
   selected?: string; // occurrence address
   collapsed: Set<string>; // occurrence addresses
+  showConfig: boolean; // configuration sidebar visible
 }
 
 /** Shared handle passed to UI modules. Mutate state inside `commit` to trigger a re-render. */

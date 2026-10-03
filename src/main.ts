@@ -4,6 +4,7 @@ import { resolve, type Occurrence } from './resolve';
 import sample from './samples/car.xml?raw';
 import { renderConfigPanel } from './ui/config-panel';
 import { renderEditor } from './ui/editor';
+import { storedShowConfig } from './ui/sidebar';
 import { renderToolbar } from './ui/toolbar';
 import { watchSystemTheme } from './ui/theme';
 import { createTreeTable } from './ui/tree-table';
@@ -17,6 +18,7 @@ const state: State = {
   fileName: 'car.xml',
   ctx: { enabled: true, options: { ENGINE: 'V8', MARKET: 'US', TRIM: 'SPORT' } },
   collapsed: new Set(),
+  showConfig: storedShowConfig(),
 };
 
 let index = new Map<string, Occurrence>();
@@ -69,6 +71,7 @@ function render(): void {
 
   treeTable.render(root);
   renderToolbar($('toolbar'), app);
+  $('config-panel').hidden = !state.showConfig;
   renderConfigPanel($('config-panel'), app, root);
   renderEditor($('editor'), app);
 
