@@ -12,13 +12,14 @@ import {
   renameItem,
   updateItem,
   updateRelation,
+  usageCount,
   type Relation,
 } from '../model';
-import type { Occurrence } from '../resolve';
+import type { Occurrence, Status } from '../resolve';
 import { showNewItemTypeDialog } from './dialogs';
 import { button, field, h, input } from './dom';
 
-const STATUS_TEXT: Record<Occurrence['status'], string> = {
+const STATUS_TEXT: Record<Status, string> = {
   included: 'Included',
   excludedByVariant: 'Excluded by variant',
   excludedByEff: 'Excluded by effectivity',
@@ -70,7 +71,7 @@ export function renderEditor(container: HTMLElement, app: App): void {
 function itemSection(app: App, occ: Occurrence): HTMLElement[] {
   const doc = openDoc(app.state);
   const item = occ.item;
-  const uses = doc.boms.flatMap((b) => b.relations).filter((r) => r.childId === item.id).length;
+  const uses = usageCount(doc, item.id);
   const description = h('textarea', { name: 'item-desc', value: item.description, rows: 2 });
   description.addEventListener('change', () => app.commit(() => updateItem(doc, item.id, { description: description.value })));
 

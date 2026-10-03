@@ -83,16 +83,21 @@ function allRelations(doc: BomDocument): Relation[] {
   return doc.boms.flatMap((b) => b.relations);
 }
 
+/** Number of relations using the item, across all BOMs. */
+export function usageCount(doc: BomDocument, itemId: string): number {
+  return allRelations(doc).filter((r) => r.childId === itemId).length;
+}
+
 export function findBom(doc: BomDocument, bomId: string): Bom | undefined {
   return doc.boms.find((b) => b.id === bomId);
 }
 
-export function childrenOf(bom: Bom, itemId: string): Relation[] {
+function childrenOf(bom: Bom, itemId: string): Relation[] {
   return bom.relations.filter((r) => r.parentId === itemId);
 }
 
 /** Natural order, so `9` < `10` < `10A`; ties keep file order. */
-export const byFindNo = (a: Relation, b: Relation) => a.findNo.localeCompare(b.findNo, undefined, { numeric: true });
+const byFindNo = (a: Relation, b: Relation) => a.findNo.localeCompare(b.findNo, undefined, { numeric: true });
 
 /** Children in display order (by find number). */
 export function sortedChildren(bom: Bom, itemId: string): Relation[] {
@@ -102,7 +107,7 @@ export function sortedChildren(bom: Bom, itemId: string): Relation[] {
 const newRelationId = (doc: BomDocument) => nextId('R', allRelations(doc).map((r) => r.id));
 
 /** Id prefix from the type's first letter, e.g. `P-` for Part; `I` for untyped items. */
-export function itemIdPrefix(type?: string): string {
+function itemIdPrefix(type?: string): string {
   return type ? `${type[0].toUpperCase()}-` : 'I';
 }
 

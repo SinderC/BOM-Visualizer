@@ -1,6 +1,6 @@
 import { BOM_TYPES, DEFAULT_ITEM_TYPES, validateDocument, type Bom, type BomType, type BomDocument, type Effectivity, type Relation } from './model';
 
-export const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 1;
 
 /** Parses a `<bomDocument>`. Unknown elements and attributes are ignored. Throws on invalid input. */
 export function parseXml(text: string): BomDocument {
