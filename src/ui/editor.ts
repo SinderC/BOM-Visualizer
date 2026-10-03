@@ -1,4 +1,4 @@
-import { activeBom, h, type App } from '../app';
+import { activeBom, h, openDoc, type App } from '../app';
 import { validate } from '../expr';
 import {
   addItem,
@@ -35,7 +35,7 @@ const NEW_TYPE = '\0new'; // select value of the "New type…" entry; cannot cla
 
 /** Item type picker with a "New type…" entry that adds a type to the document via a dialog. */
 function typeSelect(app: App, name: string, value: string | undefined, onPick: (type: string | undefined) => void): HTMLSelectElement {
-  const { doc } = app.state;
+  const doc = openDoc(app.state);
   const select = h(
     'select',
     { name },
@@ -72,7 +72,7 @@ export function renderEditor(container: HTMLElement, app: App): void {
 }
 
 function itemSection(app: App, occ: Occurrence): HTMLElement[] {
-  const { doc } = app.state;
+  const doc = openDoc(app.state);
   const item = occ.item;
   const uses = doc.boms.flatMap((b) => b.relations).filter((r) => r.childId === item.id).length;
   const description = h('textarea', { name: 'item-desc', value: item.description, rows: 2 });
@@ -107,7 +107,7 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
   const errors = h('ul', { className: 'errors' });
   const showErrors = () =>
     errors.replaceChildren(
-      ...validate(expr.value, app.state.doc.families).map((e) => h('li', {}, `col ${e.pos + 1}: ${e.message}`)),
+      ...validate(expr.value, openDoc(app.state).families).map((e) => h('li', {}, `col ${e.pos + 1}: ${e.message}`)),
     );
   showErrors();
   expr.addEventListener('input', showErrors);
@@ -140,7 +140,8 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
 }
 
 function structureSection(app: App, occ: Occurrence): HTMLElement[] {
-  const { doc, collapsed } = app.state;
+  const doc = openDoc(app.state);
+  const { collapsed } = app.state;
   const bom = activeBom(app.state);
 
   const existing = h(

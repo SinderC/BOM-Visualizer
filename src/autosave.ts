@@ -3,7 +3,8 @@ const AUTOSAVE_KEY = 'bom-visualizer.autosave';
 
 export interface Autosaved {
   fileName: string;
-  xml: string;
+  xml: string; // empty = no document open (closed)
+  dirty?: boolean; // unsaved to file; absent in autosaves written before this was tracked
 }
 
 export function loadAutosave(): Autosaved | undefined {

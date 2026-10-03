@@ -3,7 +3,7 @@ import { findBom, type Bom, type BomDocument } from './model';
 import type { ConfigContext, Occurrence } from './resolve';
 
 export interface State {
-  doc: BomDocument;
+  doc?: BomDocument; // undefined after File > Close
   bomId: string;
   fileName: string;
   ctx: ConfigContext;
@@ -17,6 +17,10 @@ export interface App {
   state: State;
   commit(mutate?: () => void): void;
   loadDocument(doc: BomDocument, fileName: string): void;
+  closeDocument(): void;
+  /** True when the document differs from what was last opened from or saved to file. */
+  isDirty(): boolean;
+  markSaved(): void;
   toast(message: string, isError?: boolean): void;
   /** Document undo/redo; steps are recorded by `commit`. Use as `app.commit(app.history.undo)`. */
   history: History;
@@ -24,8 +28,15 @@ export interface App {
   occurrence(address: string | undefined): Occurrence | undefined;
 }
 
+/** The open document. Only the toolbar renders without one, so other UI can rely on it. */
+export function openDoc(state: State): BomDocument {
+  if (!state.doc) throw new Error('No document is open');
+  return state.doc;
+}
+
 export function activeBom(state: State): Bom {
-  return findBom(state.doc, state.bomId) ?? state.doc.boms[0];
+  const doc = openDoc(state);
+  return findBom(doc, state.bomId) ?? doc.boms[0];
 }
 
 /** Creates an element with properties and children. */

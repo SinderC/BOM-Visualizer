@@ -1,4 +1,4 @@
-import { activeBom, h, type App } from '../app';
+import { activeBom, h, openDoc, type App } from '../app';
 import { formatEff } from '../effectivity';
 import { copyRelation, moveRelation, occurrencePath } from '../model';
 import type { Occurrence } from '../resolve';
@@ -104,7 +104,7 @@ export function createTreeTable(container: HTMLElement, app: App) {
       app.commit(() => {
         const bom = activeBom(app.state);
         const rel = copy
-          ? copyRelation(app.state.doc, bom, relId, parent.item.id, beforeId)
+          ? copyRelation(openDoc(app.state), bom, relId, parent.item.id, beforeId)
           : moveRelation(bom, relId, parent.item.id, beforeId);
         app.state.collapsed.delete(parent.address);
         app.state.selected = occurrencePath(bom.id, [...parent.path, rel.id]);

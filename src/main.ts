@@ -1,13 +1,13 @@
 import './styles.css';
 import { activeBom, type App, type State } from './app';
-import { loadAutosave, writeAutosave } from './autosave';
+import { loadAutosave, writeAutosave, type Autosaved } from './autosave';
 import { createHistory } from './history';
 import { resolve, type Occurrence } from './resolve';
 import sample from './samples/car.xml?raw';
 import { renderConfigPanel } from './ui/config-panel';
 import { renderEditor } from './ui/editor';
 import { storedShowConfig } from './ui/sidebar';
-import { renderToolbar } from './ui/toolbar';
+import { canWrite, renderToolbar } from './ui/toolbar';
 import { watchSystemTheme } from './ui/theme';
 import { applyView } from './ui/view';
 import { createTreeTable } from './ui/tree-table';
@@ -26,10 +26,12 @@ const state: State = {
 
 let index = new Map<string, Occurrence>();
 const history = createHistory(
-  () => serializeXml(state.doc),
+  () => (state.doc ? serializeXml(state.doc) : ''),
   (snapshot) => (state.doc = parseXml(snapshot)),
 );
-let saved = { snapshot: history.snapshot, fileName: state.fileName }; // last autosaved state
+/** Snapshot as last opened from or saved to file; undefined = never saved (always dirty). */
+let cleanSnapshot: string | undefined = history.snapshot;
+let saved: Autosaved = { fileName: state.fileName, xml: history.snapshot, dirty: false }; // last autosaved state
 let autosaveFailed = false;
 let renderQueued = false;
 let toastTimer: number | undefined;
@@ -53,7 +55,18 @@ const app: App = {
     state.selected = undefined;
     state.collapsed.clear();
     state.ctx.options = {};
-    history.reset();
+    resetDocument();
+  },
+  closeDocument() {
+    state.doc = undefined;
+    state.fileName = '';
+    state.selected = undefined;
+    state.collapsed.clear();
+    resetDocument();
+  },
+  isDirty: () => history.snapshot !== cleanSnapshot,
+  markSaved() {
+    cleanSnapshot = history.snapshot;
     app.commit();
   },
   toast(message, isError = false) {
@@ -68,11 +81,18 @@ const app: App = {
   occurrence: (address) => (address === undefined ? undefined : index.get(address)),
 };
 
-/** Writes the document to localStorage when it or its file name changed; reports a failure once. */
+/** After opening, creating or closing a document: no undo steps, nothing unsaved. */
+function resetDocument(): void {
+  history.reset();
+  cleanSnapshot = history.snapshot;
+  app.commit();
+}
+
+/** Writes the document to localStorage when it, its file name or its unsaved state changed; reports a failure once. */
 function autosave(): void {
-  const current = { snapshot: history.snapshot, fileName: state.fileName };
-  if (current.snapshot === saved.snapshot && current.fileName === saved.fileName) return;
-  const error = writeAutosave({ fileName: current.fileName, xml: current.snapshot });
+  const current: Autosaved = { fileName: state.fileName, xml: history.snapshot, dirty: app.isDirty() };
+  if (current.xml === saved.xml && current.fileName === saved.fileName && current.dirty === saved.dirty) return;
+  const error = writeAutosave(current);
   if (error && !autosaveFailed) app.toast(`Autosave failed: ${error}`, true);
   autosaveFailed = !!error;
   if (!error) saved = current;
@@ -83,6 +103,14 @@ const treeTable = createTreeTable($('tree'), app);
 function render(): void {
   renderQueued = false;
   const focusedName = (document.activeElement as HTMLInputElement | null)?.name;
+  renderToolbar($('toolbar'), app);
+  document.title = state.doc ? `${app.isDirty() ? '• ' : ''}${state.fileName} - BOM Visualizer` : 'BOM Visualizer';
+  // Without a document, CSS hides the panels and the tree, and shows the placeholder.
+  document.body.classList.toggle('no-doc', !state.doc);
+  if (!state.doc) {
+    index = new Map();
+    return;
+  }
   const root = resolve(state.doc, activeBom(state), state.ctx);
   index = new Map();
   const walk = (o: Occurrence) => {
@@ -93,7 +121,6 @@ function render(): void {
   if (state.selected && !index.has(state.selected)) state.selected = undefined;
 
   treeTable.render(root);
-  renderToolbar($('toolbar'), app);
   $('config-panel').hidden = !state.showConfig;
   renderConfigPanel($('config-panel'), app, root);
   renderEditor($('editor'), app);
@@ -112,6 +139,11 @@ document.addEventListener('keydown', (e) => {
   app.commit(redo ? history.redo : history.undo);
 });
 
+// Browser's own "Leave site?" prompt; only where Save can write back to the file (Chromium).
+addEventListener('beforeunload', (e) => {
+  if (canWrite && app.isDirty()) e.preventDefault();
+});
+
 watchSystemTheme();
 applyView();
 render();
@@ -119,8 +151,15 @@ render();
 const restored = loadAutosave();
 if (restored) {
   try {
-    app.loadDocument(parseXml(restored.xml), restored.fileName);
-    app.toast(`Restored ${restored.fileName} from autosave`);
+    if (!restored.xml) app.closeDocument();
+    else {
+      app.loadDocument(parseXml(restored.xml), restored.fileName);
+      if (restored.dirty ?? true) {
+        cleanSnapshot = undefined;
+        app.commit();
+      }
+      app.toast(`Restored ${restored.fileName} from autosave`);
+    }
   } catch (e) {
     app.toast(`Could not restore autosave: ${(e as Error).message}`, true);
   }

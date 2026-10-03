@@ -1,7 +1,7 @@
-import { activeBom, h, type App } from '../app';
+import { activeBom, h, openDoc, type App } from '../app';
 import { addBom, createDocument } from '../model';
 import { parseXml, serializeXml } from '../xml';
-import { showNewBomDialog } from './dialogs';
+import { showNewBomDialog, showUnsavedChangesDialog } from './dialogs';
 import { storeShowConfig } from './sidebar';
 import { setThemePref, themePref, type ThemePref } from './theme';
 import { COLUMNS } from './tree-table';
@@ -31,8 +31,8 @@ function menuList(trigger: HTMLElement, items: HTMLElement[], place: 'below' | '
   return list;
 }
 
-function menu(label: string, items: HTMLElement[]): HTMLElement {
-  const trigger = h('button', {}, `${label} ▾`);
+function menu(label: string, items: HTMLElement[], disabled = false): HTMLElement {
+  const trigger = h('button', { disabled }, `${label} ▾`);
   const list = menuList(trigger, items, 'below');
   trigger.popoverTargetElement = list;
   return h('span', {}, trigger, list);
@@ -88,7 +88,8 @@ declare global {
 }
 
 const XML_TYPES = [{ description: 'BOM XML', accept: { 'application/xml': ['.xml'] } }];
-const canWrite = 'showSaveFilePicker' in window;
+/** Save writes back to the opened file (Chromium: Chrome, Edge); elsewhere Save downloads a copy. */
+export const canWrite = 'showSaveFilePicker' in window;
 
 /** File that Save writes back to; unset until the document is opened from or saved to disk. */
 let fileHandle: FileSystemFileHandle | undefined;
@@ -106,6 +107,17 @@ async function openFile(app: App, file: File): Promise<boolean> {
   }
 }
 
+/**
+ * Runs `proceed` once unsaved changes are saved or discarded. Asks only where Save writes back to the file; elsewhere
+ * autosave is the safety net. Does nothing if the user cancels, or cancels or fails the save.
+ */
+function confirmUnsaved(app: App, proceed: () => void): void {
+  if (!canWrite || !app.isDirty()) return proceed();
+  showUnsavedChangesDialog(app.state.fileName, async (save) => {
+    if (!save || (await saveFile(app))) proceed();
+  });
+}
+
 async function pickAndOpen(app: App, fileInput: HTMLInputElement): Promise<void> {
   if (!window.showOpenFilePicker) return fileInput.click();
   try {
@@ -116,32 +128,40 @@ async function pickAndOpen(app: App, fileInput: HTMLInputElement): Promise<void>
   }
 }
 
-function download(app: App): void {
-  const url = URL.createObjectURL(new Blob([serializeXml(app.state.doc)], { type: 'application/xml' }));
+/** Download fallback; counted as saved, since the browser gives no way to tell whether the user kept the file. */
+function download(app: App): true {
+  const url = URL.createObjectURL(new Blob([serializeXml(openDoc(app.state))], { type: 'application/xml' }));
   h('a', { href: url, download: app.state.fileName }).click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  app.markSaved();
+  return true;
 }
 
-async function saveFile(app: App, saveAs = false): Promise<void> {
+/** Returns whether the document was saved. */
+async function saveFile(app: App, saveAs = false): Promise<boolean> {
   if (!window.showSaveFilePicker) return download(app);
   try {
     if (saveAs || !fileHandle) {
       fileHandle = await window.showSaveFilePicker({ suggestedName: app.state.fileName, types: XML_TYPES });
     }
     const writable = await fileHandle.createWritable();
-    await writable.write(serializeXml(app.state.doc));
+    await writable.write(serializeXml(openDoc(app.state)));
     await writable.close();
     const { name } = fileHandle;
     app.commit(() => (app.state.fileName = name));
+    app.markSaved();
     app.toast(`Saved ${name}`);
+    return true;
   } catch (e) {
     if (!isAbort(e)) app.toast(`Could not save: ${(e as Error).message}`, true);
+    return false;
   }
 }
 
 export function renderToolbar(container: HTMLElement, app: App): void {
   const { state } = app;
-  const bom = activeBom(state);
+  const { doc } = state;
+  const noDoc = !doc;
 
   const fileInput = h('input', { type: 'file', accept: '.xml,application/xml,text/xml', hidden: true });
   fileInput.addEventListener('change', () => {
@@ -150,15 +170,17 @@ export function renderToolbar(container: HTMLElement, app: App): void {
     if (file) void openFile(app, file);
   });
 
-  const bomItems = state.doc.boms.map((b) => {
-    const item = button('', `Switch to ${b.name || b.id}`, () => switchBom(app, b.id));
-    if (b.id === bom.id) item.classList.add('active');
-    item.append(h('span', {}, b.name || b.id), h('span', { className: 'muted' }, b.type ?? ''));
-    return item;
-  });
-
-  const bomName = h('input', { name: 'bom-name', value: bom.name, title: 'BOM name' });
-  bomName.addEventListener('change', () => app.commit(() => (bom.name = bomName.value.trim() || bom.name)));
+  const save = button('Save', canWrite ? `Save ${state.fileName}` : `Download as ${state.fileName}`, () => void saveFile(app));
+  const saveAs = button('Save As…', 'Save to a new file', () => void saveFile(app, true));
+  const close = button('Close', 'Close the document', () =>
+    confirmUnsaved(app, () => {
+      fileHandle = undefined;
+      app.closeDocument();
+    }),
+  );
+  save.disabled = saveAs.disabled = close.disabled = noDoc;
+  const dirty = app.isDirty();
+  const fileName = h('span', { className: 'muted file-name', title: dirty ? 'Unsaved changes' : '' }, (dirty ? '• ' : '') + state.fileName);
 
   const sidebarToggle = button('☰', 'Show or hide the configuration sidebar', () =>
     app.commit(() => storeShowConfig((state.showConfig = !state.showConfig))),
@@ -171,28 +193,51 @@ export function renderToolbar(container: HTMLElement, app: App): void {
     sidebarToggle,
     h('strong', { className: 'brand' }, 'BOM Visualizer'),
     menu('File', [
-      button('New', 'Start an empty document', () => {
-        fileHandle = undefined;
-        app.loadDocument(createDocument(), 'untitled.xml');
-      }),
-      button('Open…', 'Open a BOM XML file', () => void pickAndOpen(app, fileInput)),
-      button('Save', canWrite ? `Save ${state.fileName}` : `Download as ${state.fileName}`, () => void saveFile(app)),
-      ...(canWrite ? [button('Save As…', 'Save to a new file', () => void saveFile(app, true))] : []),
+      button('New', 'Start an empty document', () =>
+        confirmUnsaved(app, () => {
+          fileHandle = undefined;
+          app.loadDocument(createDocument(), 'untitled.xml');
+        }),
+      ),
+      button('Open…', 'Open a BOM XML file', () => confirmUnsaved(app, () => void pickAndOpen(app, fileInput))),
+      save,
+      ...(canWrite ? [saveAs] : []),
+      h('hr'),
+      close,
     ]),
     fileInput,
     menu('Edit', editItems(app)),
-    menu('BOM', [
-      ...bomItems,
-      h('hr'),
-      button('Create new BOM…', 'Add a BOM to this document', () =>
-        showNewBomDialog((name, type) => switchBom(app, addBom(state.doc, name, type).id)),
-      ),
-    ]),
+    menu('BOM', doc ? bomItems(app) : [], noDoc),
     menu('View', viewItems(app)),
     h('span', { className: 'sep' }),
-    bomName,
-    h('span', { className: 'muted file-name' }, state.fileName),
+    ...(doc ? [bomNameInput(app)] : []),
+    fileName,
   );
+}
+
+function bomItems(app: App): HTMLElement[] {
+  const bom = activeBom(app.state);
+  const doc = openDoc(app.state);
+  const switchItems = doc.boms.map((b) => {
+    const item = button('', `Switch to ${b.name || b.id}`, () => switchBom(app, b.id));
+    if (b.id === bom.id) item.classList.add('active');
+    item.append(h('span', {}, b.name || b.id), h('span', { className: 'muted' }, b.type ?? ''));
+    return item;
+  });
+  return [
+    ...switchItems,
+    h('hr'),
+    button('Create new BOM…', 'Add a BOM to this document', () =>
+      showNewBomDialog((name, type) => switchBom(app, addBom(doc, name, type).id)),
+    ),
+  ];
+}
+
+function bomNameInput(app: App): HTMLInputElement {
+  const bom = activeBom(app.state);
+  const input = h('input', { name: 'bom-name', value: bom.name, title: 'BOM name' });
+  input.addEventListener('change', () => app.commit(() => (bom.name = input.value.trim() || bom.name)));
+  return input;
 }
 
 /** Menu entry with its keyboard shortcut right-aligned, as in native menus. */

@@ -150,6 +150,11 @@ button.icon { padding: 4px 8px; flex: 0 0 auto; }
 
 /* Tree-table */
 #tree { overflow: auto; background: var(--panel); }
+#tree .placeholder { display: none; margin: 40px 16px; text-align: center; }
+/* No document open (File > Close): only the toolbar and the placeholder. */
+body.no-doc main { grid-template-columns: 1fr; }
+body.no-doc #config-panel, body.no-doc #editor, body.no-doc .tree-table { display: none; }
+body.no-doc #tree .placeholder { display: block; }
 .tree-table { width: 100%; border-collapse: collapse; outline: none; }
 .tree-table th {
   position: sticky;

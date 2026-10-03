@@ -1,4 +1,4 @@
-import { h, type App } from '../app';
+import { h, openDoc, type App } from '../app';
 import type { Occurrence } from '../resolve';
 
 function count(o: Occurrence): { total: number; included: number } {
@@ -9,7 +9,8 @@ function count(o: Occurrence): { total: number; included: number } {
 }
 
 export function renderConfigPanel(container: HTMLElement, app: App, root: Occurrence): void {
-  const { ctx, doc } = app.state;
+  const doc = openDoc(app.state);
+  const { ctx } = app.state;
   const { total, included } = count(root);
 
   const enabled = h('input', { type: 'checkbox', name: 'cfg-enabled', checked: ctx.enabled });
@@ -42,7 +43,8 @@ export function renderConfigPanel(container: HTMLElement, app: App, root: Occurr
 }
 
 function renderFamilies(app: App): HTMLElement[] {
-  const { doc, ctx } = app.state;
+  const doc = openDoc(app.state);
+  const { ctx } = app.state;
   const rows = doc.families.map((f, i) => {
     const name = h('input', { name: `fam-${i}-name`, value: f.name, className: 'mono', title: 'Family name' });
     name.addEventListener('change', () => {

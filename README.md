@@ -16,6 +16,7 @@ Lightweight browser sandbox for trying out BOM concepts: multi-level structures,
 - Undo / redo of document edits (Edit menu, Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z, Ctrl+Y); up to 100 steps, cleared on New/Open. Configuration, selection and collapse are not undo steps.
 - Autosave: every document change is kept in localStorage and restored on the next start. New/Open replace it. The link to the file on disk is not kept, so the first Save after a reload asks where to save.
 - View menu: Theme (System — default, follows the OS live — Light or Dark), Columns (show/hide each column except Name) and Banded rows; all remembered in localStorage.
+- File > Close closes the document. In Chrome/Edge (where Save writes back to the file), Close, New, Open and leaving the page ask to save unsaved changes first. A • before the file name (toolbar and browser tab title) marks unsaved changes.
 - Open/save as XML — see [docs/schema.md](docs/schema.md).
 
 ## Use
