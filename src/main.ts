@@ -1,5 +1,5 @@
 import './styles.css';
-import { activeBom, type App, type State } from './app';
+import { activeBom, resetView, type App, type State } from './app';
 import { loadAutosave, writeAutosave, type Autosaved } from './autosave';
 import { createHistory } from './history';
 import { resolve, type Occurrence } from './resolve';
@@ -58,16 +58,14 @@ const app: App = {
     state.doc = doc;
     state.bomId = doc.boms[0].id;
     state.fileName = fileName;
-    state.selected = undefined;
-    state.collapsed.clear();
+    resetView(state);
     state.ctx.options = {};
     resetDocument();
   },
   closeDocument() {
     state.doc = undefined;
     state.fileName = '';
-    state.selected = undefined;
-    state.collapsed.clear();
+    resetView(state);
     resetDocument();
   },
   isDirty: () => history.snapshot !== cleanSnapshot,

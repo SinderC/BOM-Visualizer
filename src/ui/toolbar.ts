@@ -1,4 +1,4 @@
-import { activeBom, h, openDoc, type App } from '../app';
+import { activeBom, h, openDoc, resetView, type App } from '../app';
 import { addBom, createDocument } from '../model';
 import { parseXml, serializeXml } from '../xml';
 import { showNewBomDialog, showUnsavedChangesDialog } from './dialogs';
@@ -301,7 +301,6 @@ function themeItems(app: App): HTMLButtonElement[] {
 function switchBom(app: App, bomId: string): void {
   app.commit(() => {
     app.state.bomId = bomId;
-    app.state.selected = undefined;
-    app.state.collapsed.clear();
+    resetView(app.state);
   });
 }

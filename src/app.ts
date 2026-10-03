@@ -40,6 +40,12 @@ export function activeBom(state: State): Bom {
   return findBom(doc, state.bomId) ?? doc.boms[0];
 }
 
+/** Clears what is shown of the previous BOM or document: selection and collapsed rows. */
+export function resetView(state: State): void {
+  state.selected = undefined;
+  state.collapsed.clear();
+}
+
 /** Creates an element with properties and children. */
 export function h<K extends keyof HTMLElementTagNameMap>(
   tag: K,
