@@ -2,10 +2,9 @@ import { activeBom, h, openDoc, type App } from '../app';
 import { addBom, createDocument } from '../model';
 import { parseXml, serializeXml } from '../xml';
 import { showNewBomDialog, showUnsavedChangesDialog } from './dialogs';
-import { storeShowConfig } from './sidebar';
 import { setThemePref, themePref, type ThemePref } from './theme';
 import { COLUMNS } from './tree-table';
-import { isBanded, isColumnShown, setBanded, setColumnShown } from './view';
+import { isBanded, isColumnShown, isPanelShown, setBanded, setColumnShown, setPanelShown, type Panel } from './view';
 
 function button(label: string, title: string, onClick: () => void): HTMLButtonElement {
   const b = h('button', { title }, label);
@@ -182,15 +181,8 @@ export function renderToolbar(container: HTMLElement, app: App): void {
   const dirty = app.isDirty();
   const fileName = h('span', { className: 'muted file-name', title: dirty ? 'Unsaved changes' : '' }, (dirty ? '• ' : '') + state.fileName);
 
-  const sidebarToggle = button('☰', 'Show or hide the configuration sidebar', () =>
-    app.commit(() => storeShowConfig((state.showConfig = !state.showConfig))),
-  );
-  sidebarToggle.classList.add('icon');
-  sidebarToggle.classList.toggle('active', state.showConfig);
-  sidebarToggle.setAttribute('aria-pressed', String(state.showConfig));
 
   container.replaceChildren(
-    sidebarToggle,
     h('strong', { className: 'brand' }, 'BOM Visualizer'),
     menu('File', [
       button('New', 'Start an empty document', () =>
@@ -264,10 +256,15 @@ function viewItems(app: App): HTMLElement[] {
   );
   // Name holds the tree (indentation, expand/collapse, drag handle), so it is always shown.
   columns[0].disabled = true;
+  const panel = (p: Panel, label: string, title: string) =>
+    toggleItem(label, title, () => isPanelShown(p), (on) => setPanelShown(p, on));
   return [
     submenu('Theme', themeItems(app)),
     submenu('Columns', columns),
     toggleItem('Banded rows', 'Shade every other row', isBanded, setBanded),
+    h('hr'),
+    panel('config', 'Configuration', 'Show or hide the configuration panel'),
+    panel('editor', 'Editor', 'Show or hide the editor panel'),
   ];
 }
 

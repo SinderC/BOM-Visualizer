@@ -6,10 +6,9 @@ import { resolve, type Occurrence } from './resolve';
 import sample from './samples/car.xml?raw';
 import { renderConfigPanel } from './ui/config-panel';
 import { renderEditor } from './ui/editor';
-import { storedShowConfig } from './ui/sidebar';
 import { canWrite, renderToolbar } from './ui/toolbar';
 import { watchSystemTheme } from './ui/theme';
-import { applyView } from './ui/view';
+import { applyView, isApplyConfig } from './ui/view';
 import { createTreeTable } from './ui/tree-table';
 import { parseXml, serializeXml } from './xml';
 
@@ -19,9 +18,8 @@ const state: State = {
   doc: parseXml(sample),
   bomId: 'EBOM',
   fileName: 'car.xml',
-  ctx: { enabled: true, options: { ENGINE: 'V8', MARKET: 'US', TRIM: 'SPORT' } },
+  ctx: { enabled: isApplyConfig(), options: { ENGINE: 'V8', MARKET: 'US', TRIM: 'SPORT' } },
   collapsed: new Set(),
-  showConfig: storedShowConfig(),
 };
 
 let index = new Map<string, Occurrence>();
@@ -121,7 +119,6 @@ function render(): void {
   if (state.selected && !index.has(state.selected)) state.selected = undefined;
 
   treeTable.render(root);
-  $('config-panel').hidden = !state.showConfig;
   renderConfigPanel($('config-panel'), app, root);
   renderEditor($('editor'), app);
 

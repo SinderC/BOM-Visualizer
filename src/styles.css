@@ -95,11 +95,19 @@ dialog::backdrop { background: rgb(0 0 0 / 0.35); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 
 main {
+  --config-w: 260px;
+  --editor-w: 330px;
   display: grid;
-  grid-template-columns: 260px 1fr 330px;
+  grid-template-columns: var(--config-w) 1fr var(--editor-w);
   min-height: 0;
 }
-main:has(> #config-panel[hidden]) { grid-template-columns: 1fr 330px; }
+#config-panel { grid-column: 1; }
+#tree { grid-column: 2; }
+#editor { grid-column: 3; }
+/* Panels hidden from the View menu, or with no document open. */
+:root[data-hide-config] main, body.no-doc main { --config-w: 0px; }
+:root[data-hide-editor] main, body.no-doc main { --editor-w: 0px; }
+:root[data-hide-config] #config-panel, :root[data-hide-editor] #editor { display: none; }
 
 aside {
   background: var(--panel);
@@ -152,7 +160,6 @@ button.icon { padding: 4px 8px; flex: 0 0 auto; }
 #tree { overflow: auto; background: var(--panel); }
 #tree .placeholder { display: none; margin: 40px 16px; text-align: center; }
 /* No document open (File > Close): only the toolbar and the placeholder. */
-body.no-doc main { grid-template-columns: 1fr; }
 body.no-doc #config-panel, body.no-doc #editor, body.no-doc .tree-table { display: none; }
 body.no-doc #tree .placeholder { display: block; }
 .tree-table { width: 100%; border-collapse: collapse; outline: none; }
@@ -209,7 +216,9 @@ body.no-doc #tree .placeholder { display: block; }
 #toast.error { background: var(--danger); color: #fff; }
 
 @media (max-width: 900px) {
-  main { grid-template-columns: 1fr; grid-template-rows: auto 60vh auto; }
+  main { grid-template-columns: 1fr; }
+  #config-panel, #tree, #editor { grid-column: auto; }
+  #tree { height: 60vh; }
   #config-panel, #editor { border: 0; }
   body { height: auto; }
 }

@@ -1,5 +1,6 @@
 import { h, openDoc, type App } from '../app';
 import type { Occurrence } from '../resolve';
+import { setApplyConfig } from './view';
 
 function count(o: Occurrence): { total: number; included: number } {
   return o.children.map(count).reduce(
@@ -14,7 +15,7 @@ export function renderConfigPanel(container: HTMLElement, app: App, root: Occurr
   const { total, included } = count(root);
 
   const enabled = h('input', { type: 'checkbox', name: 'cfg-enabled', checked: ctx.enabled });
-  enabled.addEventListener('change', () => app.commit(() => (ctx.enabled = enabled.checked)));
+  enabled.addEventListener('change', () => app.commit(() => setApplyConfig((ctx.enabled = enabled.checked))));
 
   const options = doc.families.map((f) => {
     const select = h(
