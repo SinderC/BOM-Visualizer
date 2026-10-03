@@ -91,7 +91,7 @@ function itemSection(app: App, occ: Occurrence): HTMLElement[] {
 
   return [
     h('h3', {}, 'Item'),
-    h('div', { className: 'row' }, field('Id', id), field('Type', type)),
+    h('div', { className: 'row' }, field('ID', id), field('Type', type)),
     field('Name', input('item-name', item.name, (v) => app.commit(() => updateItem(doc, item.id, { name: v || item.name })))),
     field('Description', description),
     h('p', { className: 'muted' }, `Used by ${uses} relation${uses === 1 ? '' : 's'} across all BOMs; item edits apply everywhere.`),
@@ -119,7 +119,7 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
       'div',
       { className: 'row' },
       field('Qty', input('rel-qty', rel.qty, (v) => set({ qty: Number(v) || rel.qty }), 'number')),
-      field('Find no', input('rel-find', rel.findNo, (v) => set({ findNo: v }))),
+      field('Find no.', input('rel-find', rel.findNo, (v) => set({ findNo: v }))),
     ),
     field('Variant expression', expr),
     errors,
@@ -152,7 +152,7 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
   const name = h('input', { name: 'add-name', placeholder: 'New item name' });
   if (addChildType && !doc.itemTypes.includes(addChildType)) addChildType = undefined;
   const type = typeSelect(app, 'add-type', addChildType, (t) => (addChildType = t));
-  type.title = 'Type of the new item; also sets its id prefix';
+  type.title = 'Type of the new item; also sets its ID prefix';
   existing.addEventListener('change', () => (name.disabled = type.disabled = !!existing.value));
   const add = h('button', {}, 'Add child');
   add.addEventListener('click', () => {

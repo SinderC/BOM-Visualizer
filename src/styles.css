@@ -157,9 +157,11 @@ button.icon { padding: 4px 8px; flex: 0 0 auto; }
   color: var(--muted);
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
-  white-space: nowrap;
 }
-.tree-table td { padding: 4px 10px; white-space: nowrap; border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent); }
+/* Every column fits its widest cell; the last one takes the leftover width. */
+.tree-table th, .tree-table td { width: 1%; white-space: nowrap; }
+.tree-table th:last-child, .tree-table td:last-child { width: auto; }
+.tree-table td { padding: 4px 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent); }
 .tree-table tbody tr { cursor: default; }
 .tree-table tbody tr:hover { background: color-mix(in srgb, var(--accent-soft) 50%, transparent); }
 .tree-table tr.selected { background: var(--accent-soft); }
@@ -167,15 +169,14 @@ button.icon { padding: 4px 8px; flex: 0 0 auto; }
 .tree-table tr.drop-before td { box-shadow: inset 0 2px var(--accent); }
 .tree-table tr.drop-after td { box-shadow: inset 0 -2px var(--accent); }
 .tree-table:focus tr.selected td:first-child { box-shadow: inset 2px 0 var(--accent); }
-.tree-table td.name { width: 40%; }
 .tree-table .twisty { display: inline-block; width: 16px; color: var(--muted); cursor: pointer; text-align: center; margin-right: 4px; font-size: 15px; line-height: 1; }
 .tree-table .twisty.leaf { cursor: default; }
 .tree-table .twisty:hover:not(.leaf) { color: var(--accent); }
-.tree-table .id { color: var(--muted); font-size: 11px; margin-left: 8px; }
-.tree-table td.type { color: var(--muted); width: 1%; }
-.tree-table td.num { text-align: right; font-variant-numeric: tabular-nums; width: 1%; }
+.tree-table td.id { color: var(--muted); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.tree-table td.type { color: var(--muted); }
+.tree-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .tree-table td.expr, .tree-table td.eff { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
-.tree-table td.expr { color: var(--expr); max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
+.tree-table td.expr { color: var(--expr); }
 .tree-table td.eff { color: var(--eff); }
 .tree-table tr:not(.st-included) td { opacity: var(--excluded); }
 .tree-table tr:not(.st-included) td.name > span:nth-child(2) { text-decoration: line-through; }
@@ -197,7 +198,6 @@ button.icon { padding: 4px 8px; flex: 0 0 auto; }
 
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; grid-template-rows: auto 60vh auto; }
-  .tree-table td.expr { max-width: 200px; }
   #config-panel, #editor { border: 0; }
   body { height: auto; }
 }

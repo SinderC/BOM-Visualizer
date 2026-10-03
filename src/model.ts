@@ -120,9 +120,9 @@ export function updateItem(doc: BomDocument, id: string, patch: Partial<Omit<Ite
 /** Changes an item's id and rewrites every reference to it. Occurrence addresses use relation ids, so they are unaffected. */
 export function renameItem(doc: BomDocument, oldId: string, newId: string): void {
   if (!doc.items.has(oldId)) throw new Error(`Unknown item ${oldId}`);
-  if (!newId || /\s/.test(newId)) throw new Error('Item id must be non-empty and contain no spaces');
+  if (!newId || /\s/.test(newId)) throw new Error('Item ID must be non-empty and contain no spaces');
   if (newId === oldId) return;
-  if (doc.items.has(newId)) throw new Error(`Item id ${newId} is already in use`);
+  if (doc.items.has(newId)) throw new Error(`Item ID ${newId} is already in use`);
   // Rebuilt rather than delete+set to keep the item's position in the saved file.
   doc.items = new Map([...doc.items].map(([id, item]) => (id === oldId ? [newId, Object.assign(item, { id: newId })] : [id, item])));
   for (const bom of doc.boms) {

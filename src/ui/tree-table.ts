@@ -4,7 +4,7 @@ import { copyRelation, moveRelation, occurrencePath } from '../model';
 import type { Occurrence } from '../resolve';
 
 const INDENT = 18;
-const COLUMNS = ['Name', 'Type', 'Qty', 'Find no', 'Variant', 'Effectivity'];
+const COLUMNS = ['Name', 'ID', 'Type', 'Qty', 'Find no.', 'Variant', 'Effectivity'];
 
 /** Indented tree-table (structure-manager style) with collapse, selection and keyboard navigation. */
 export function createTreeTable(container: HTMLElement, app: App) {
@@ -155,7 +155,7 @@ function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelec
   const twisty = occ.children.length
     ? h('span', { className: 'twisty', title: isCollapsed ? `Expand (${occ.children.length})` : 'Collapse' }, isCollapsed ? '▸' : '▾')
     : h('span', { className: 'twisty leaf' });
-  const name = h('td', { className: 'name' }, twisty, h('span', {}, occ.item.name), h('span', { className: 'id' }, occ.item.id));
+  const name = h('td', { className: 'name' }, twisty, h('span', {}, occ.item.name));
   name.style.paddingLeft = `${6 + depth * INDENT}px`;
   const eff = rel ? formatEff(rel.eff) : '';
   return h(
@@ -167,6 +167,7 @@ function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelec
       dataset: { address: occ.address },
     },
     name,
+    h('td', { className: 'id' }, occ.item.id),
     h('td', { className: 'type' }, occ.item.type ?? ''),
     h('td', { className: 'num' }, rel ? String(rel.qty) : ''),
     h('td', { className: 'num' }, rel?.findNo ?? ''),
