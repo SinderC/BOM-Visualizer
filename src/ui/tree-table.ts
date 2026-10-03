@@ -43,7 +43,7 @@ export function createTreeTable(container: HTMLElement, app: App) {
   });
 
   // Double-click a cell to edit its value in place. Enter or leaving the field saves, Escape cancels,
-  // Tab / Shift+Tab saves and edits the next editable cell to the right / left.
+  // Tab / Shift+Tab saves and edits the next editable cell to the right / left, wrapping to the next / previous row.
   table.addEventListener('dblclick', (e) => {
     const target = e.target as HTMLElement;
     const td = target.closest('td');
@@ -69,9 +69,16 @@ export function createTreeTable(container: HTMLElement, app: App) {
       if (ke.key === 'Escape' || ke.key === 'Enter') done();
       if (ke.key !== 'Tab') return;
       ke.preventDefault();
-      const next = nextEditable(app, occ, col, ke.shiftKey ? -1 : 1);
+      const step = ke.shiftKey ? -1 : 1;
+      let next = { address, col: nextEditable(app, occ, col, step) };
+      if (!next.col) {
+        const row = visible[visible.findIndex((o) => o.address === address) + step];
+        next = { address: row?.address, col: row && nextEditable(app, row, undefined, step) };
+      }
       done();
-      if (next) setTimeout(() => startEdit(address, next)); // after the save's re-render
+      if (!next.col) return;
+      if (next.address !== address) select(next.address);
+      setTimeout(() => startEdit(next.address, next.col!)); // after the save's re-render
     };
 
     if (col === 'type') {
@@ -224,10 +231,14 @@ function edit(host: HTMLElement, control: HTMLInputElement | HTMLSelectElement, 
   control.focus();
 }
 
-/** The nearest shown column after `col` in direction `step` that can be edited in place on this row. */
-function nextEditable(app: App, occ: Occurrence, col: string, step: 1 | -1): string | undefined {
+/**
+ * The nearest shown column after `col` in direction `step` that can be edited in place on this row;
+ * without `col`, the first such column from the row's start (step 1) or end (step -1).
+ */
+function nextEditable(app: App, occ: Occurrence, col: string | undefined, step: 1 | -1): string | undefined {
   const keys = COLUMNS.map((c) => c.key);
-  for (let i = keys.indexOf(col) + step; i >= 0 && i < keys.length; i += step) {
+  const start = col ? keys.indexOf(col) + step : step > 0 ? 0 : keys.length - 1;
+  for (let i = start; i >= 0 && i < keys.length; i += step) {
     if (isColumnShown(keys[i]) && cellSaver(app, occ, keys[i])) return keys[i];
   }
 }
