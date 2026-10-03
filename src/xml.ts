@@ -1,4 +1,4 @@
-import { BOM_TYPES, validateDocument, type Bom, type BomType, type BomDocument, type Effectivity, type Relation } from './model';
+import { BOM_TYPES, DEFAULT_ITEM_TYPES, validateDocument, type Bom, type BomType, type BomDocument, type Effectivity, type Relation } from './model';
 
 export const FORMAT_VERSION = 1;
 
@@ -13,7 +13,9 @@ export function parseXml(text: string): BomDocument {
     throw new Error(`Unsupported format version ${root.getAttribute('version')} (this app reads up to ${FORMAT_VERSION})`);
   }
 
-  const doc: BomDocument = { items: new Map(), families: [], boms: [], alignments: [] };
+  const typeList = kids(root, 'itemTypes')[0];
+  const itemTypes = typeList ? kids(typeList, 'type').map((t) => t.textContent?.trim() ?? '') : [...DEFAULT_ITEM_TYPES];
+  const doc: BomDocument = { itemTypes, items: new Map(), families: [], boms: [], alignments: [] };
 
   for (const f of path(root, 'optionFamilies', 'family')) {
     doc.families.push({ name: req(f, 'name'), values: kids(f, 'value').map((v) => v.textContent?.trim() ?? '') });
@@ -21,7 +23,12 @@ export function parseXml(text: string): BomDocument {
   for (const i of path(root, 'items', 'item')) {
     const id = req(i, 'id');
     if (doc.items.has(id)) throw new Error(`Duplicate item id ${id}`);
-    doc.items.set(id, { id, name: i.getAttribute('name') ?? '', description: i.getAttribute('description') ?? '' });
+    doc.items.set(id, {
+      id,
+      name: i.getAttribute('name') ?? '',
+      description: i.getAttribute('description') ?? '',
+      type: i.getAttribute('type') || undefined,
+    });
   }
   for (const b of kids(root, 'bom')) {
     const id = req(b, 'id');
@@ -92,9 +99,11 @@ export function serializeXml(doc: BomDocument): string {
   for (const f of doc.families) {
     out.push(`    <family${attrs({ name: f.name })}>${f.values.map((v) => `<value>${esc(v)}</value>`).join('')}</family>`);
   }
-  out.push('  </optionFamilies>', '  <items>');
+  out.push('  </optionFamilies>', '  <itemTypes>');
+  for (const t of doc.itemTypes) out.push(`    <type>${esc(t)}</type>`);
+  out.push('  </itemTypes>', '  <items>');
   for (const i of doc.items.values()) {
-    out.push(`    <item${attrs({ id: i.id, name: i.name, description: i.description })}/>`);
+    out.push(`    <item${attrs({ id: i.id, type: i.type, name: i.name, description: i.description })}/>`);
   }
   out.push('  </items>');
   for (const b of doc.boms) {

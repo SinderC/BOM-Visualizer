@@ -7,6 +7,7 @@ Lightweight browser sandbox for trying out BOM concepts: multi-level structures,
 ## Features
 
 - Several BOMs per document (e.g. EBOM + MBOM) sharing items and option families.
+- Items have an editable id and a type from a per-document list (Part, Assembly, Station by default; add your own from the editor).
 - Variant expressions on relations: `ENGINE=V8 AND (MARKET=EU OR TRIM IN (BASE, SPORT))`, with live validation.
 - Effectivity on relations: date range and unit range, open-ended bounds.
 - Configuration panel: pick option values, date and unit; excluded rows are dimmed and struck through (hover for the reason).

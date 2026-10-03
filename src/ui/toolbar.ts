@@ -1,7 +1,7 @@
 import { activeBom, h, type App } from '../app';
 import { addBom, createDocument } from '../model';
 import { parseXml, serializeXml } from '../xml';
-import { showNewBomDialog } from './bom-dialog';
+import { showNewBomDialog } from './dialogs';
 import { storeShowConfig } from './sidebar';
 import { setThemePref, themePref, type ThemePref } from './theme';
 

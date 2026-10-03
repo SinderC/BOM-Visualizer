@@ -168,6 +168,7 @@ button.icon { padding: 4px 8px; flex: 0 0 auto; }
 .tree-table .twisty.leaf { cursor: default; }
 .tree-table .twisty:hover:not(.leaf) { color: var(--accent); }
 .tree-table .id { color: var(--muted); font-size: 11px; margin-left: 8px; }
+.tree-table td.type { color: var(--muted); width: 1%; }
 .tree-table td.num { text-align: right; font-variant-numeric: tabular-nums; width: 1%; }
 .tree-table td.expr, .tree-table td.eff { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .tree-table td.expr { color: var(--expr); max-width: 360px; overflow: hidden; text-overflow: ellipsis; }

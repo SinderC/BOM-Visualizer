@@ -15,7 +15,7 @@ function statuses(ctx: ConfigContext): Record<string, string> {
 
 describe('resolve', () => {
   it('gives each occurrence of a reused item its own address', () => {
-    const bolts = flatten(resolve(doc, ebom, { enabled: false, options: {} })).filter((o) => o.item.id === 'I12');
+    const bolts = flatten(resolve(doc, ebom, { enabled: false, options: {} })).filter((o) => o.item.id === 'P-8');
     expect(bolts.map((o) => o.address).sort()).toEqual(['EBOM:R1/R12', 'EBOM:R2/R10/R11']);
   });
 

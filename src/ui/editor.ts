@@ -1,7 +1,19 @@
 import { activeBom, h, type App } from '../app';
 import { validate } from '../expr';
-import { addItem, addRelation, occurrencePath, removeRelation, updateItem, updateRelation, type Relation } from '../model';
+import {
+  addItem,
+  addItemType,
+  addRelation,
+  DEFAULT_ITEM_TYPES,
+  occurrencePath,
+  removeRelation,
+  renameItem,
+  updateItem,
+  updateRelation,
+  type Relation,
+} from '../model';
 import type { Occurrence } from '../resolve';
+import { showNewItemTypeDialog } from './dialogs';
 
 const STATUS_TEXT: Record<Occurrence['status'], string> = {
   included: 'Included',
@@ -19,6 +31,29 @@ function input(name: string, value: string | number | undefined, onCommit: (v: s
 
 const field = (label: string, control: HTMLElement) => h('label', {}, label, control);
 const optNumber = (v: string) => (v === '' ? undefined : Number(v));
+const NEW_TYPE = '\0new'; // select value of the "New type…" entry; cannot clash with a real type name
+
+/** Item type picker with a "New type…" entry that adds a type to the document via a dialog. */
+function typeSelect(app: App, name: string, value: string | undefined, onPick: (type: string | undefined) => void): HTMLSelectElement {
+  const { doc } = app.state;
+  const select = h(
+    'select',
+    { name },
+    h('option', { value: '' }, '—'),
+    ...doc.itemTypes.map((t) => h('option', { value: t }, t)),
+    h('option', { value: NEW_TYPE }, 'New type…'),
+  );
+  select.value = value ?? '';
+  select.addEventListener('change', () => {
+    if (select.value !== NEW_TYPE) return app.commit(() => onPick(select.value || undefined));
+    select.value = value ?? ''; // stays correct if the dialog is cancelled
+    showNewItemTypeDialog((type) => app.commit(() => onPick(addItemType(doc, type))));
+  });
+  return select;
+}
+
+/** Type for new children; remembered across renders so consecutive adds keep the last choice. */
+let addChildType: string | undefined = DEFAULT_ITEM_TYPES[0];
 
 export function renderEditor(container: HTMLElement, app: App): void {
   const occ = app.occurrence(app.state.selected);
@@ -42,8 +77,21 @@ function itemSection(app: App, occ: Occurrence): HTMLElement[] {
   const uses = doc.boms.flatMap((b) => b.relations).filter((r) => r.childId === item.id).length;
   const description = h('textarea', { name: 'item-desc', value: item.description, rows: 2 });
   description.addEventListener('change', () => app.commit(() => updateItem(doc, item.id, { description: description.value })));
+
+  const id = input('item-id', item.id, (v) => {
+    try {
+      app.commit(() => renameItem(doc, item.id, v));
+    } catch (e) {
+      app.toast((e as Error).message, true);
+      app.commit(); // restore the old id in the field
+    }
+  });
+
+  const type = typeSelect(app, 'item-type', item.type, (t) => updateItem(doc, item.id, { type: t }));
+
   return [
-    h('h3', {}, `Item ${item.id}`),
+    h('h3', {}, 'Item'),
+    h('div', { className: 'row' }, field('Id', id), field('Type', type)),
     field('Name', input('item-name', item.name, (v) => app.commit(() => updateItem(doc, item.id, { name: v || item.name })))),
     field('Description', description),
     h('p', { className: 'muted' }, `Used by ${uses} relation${uses === 1 ? '' : 's'} across all BOMs; item edits apply everywhere.`),
@@ -102,12 +150,15 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
     ...[...doc.items.values()].map((i) => h('option', { value: i.id }, `${i.id} ${i.name}`)),
   );
   const name = h('input', { name: 'add-name', placeholder: 'New item name' });
-  existing.addEventListener('change', () => (name.disabled = !!existing.value));
+  if (addChildType && !doc.itemTypes.includes(addChildType)) addChildType = undefined;
+  const type = typeSelect(app, 'add-type', addChildType, (t) => (addChildType = t));
+  type.title = 'Type of the new item; also sets its id prefix';
+  existing.addEventListener('change', () => (name.disabled = type.disabled = !!existing.value));
   const add = h('button', {}, 'Add child');
   add.addEventListener('click', () => {
     try {
       app.commit(() => {
-        const childId = existing.value || addItem(doc, name.value.trim() || 'New item').id;
+        const childId = existing.value || addItem(doc, name.value.trim() || 'New item', '', addChildType).id;
         const rel = addRelation(doc, bom, occ.item.id, childId);
         collapsed.delete(occ.address);
         app.state.selected = occurrencePath(bom.id, [...occ.path, rel.id]);
@@ -117,7 +168,7 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
     }
   });
 
-  const out: HTMLElement[] = [h('h3', {}, 'Structure'), h('div', { className: 'row' }, existing, name), add];
+  const out: HTMLElement[] = [h('h3', {}, 'Structure'), h('div', { className: 'row' }, existing), h('div', { className: 'row' }, name, type), add];
   if (occ.relation) {
     const relId = occ.relation.id;
     const remove = h('button', { className: 'danger' }, 'Remove from parent');

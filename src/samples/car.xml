@@ -5,86 +5,91 @@
     <family name="MARKET"><value>EU</value><value>US</value></family>
     <family name="TRIM"><value>BASE</value><value>SPORT</value></family>
   </optionFamilies>
+  <itemTypes>
+    <type>Part</type>
+    <type>Assembly</type>
+    <type>Station</type>
+  </itemTypes>
   <items>
-    <item id="I1" name="Car" description="Concept vehicle"/>
-    <item id="I2" name="Body"/>
-    <item id="I3" name="Powertrain"/>
-    <item id="I4" name="V6 Engine"/>
-    <item id="I5" name="V8 Engine"/>
-    <item id="I6" name="Electric Motor"/>
-    <item id="I7" name="Battery Pack"/>
-    <item id="I8" name="Gearbox"/>
-    <item id="I9" name="Wheel"/>
-    <item id="I10" name="Seat"/>
-    <item id="I11" name="Sport Seat"/>
-    <item id="I12" name="Bolt M8" description="Reused in several places"/>
-    <item id="I13" name="Emission Kit EU"/>
-    <item id="I14" name="Emission Kit US"/>
-    <item id="I15" name="Chassis"/>
-    <item id="I16" name="Interior"/>
-    <item id="I20" name="Body Shop" description="Manufacturing station"/>
-    <item id="I21" name="Powertrain Line" description="Manufacturing station"/>
-    <item id="I22" name="Final Assembly" description="Manufacturing station"/>
+    <item id="A-1" type="Assembly" name="Car" description="Concept vehicle"/>
+    <item id="A-2" type="Assembly" name="Body"/>
+    <item id="A-3" type="Assembly" name="Powertrain"/>
+    <item id="P-1" type="Part" name="V6 Engine"/>
+    <item id="P-2" type="Part" name="V8 Engine"/>
+    <item id="P-3" type="Part" name="Electric Motor"/>
+    <item id="A-4" type="Assembly" name="Battery Pack"/>
+    <item id="P-4" type="Part" name="Gearbox"/>
+    <item id="P-5" type="Part" name="Wheel"/>
+    <item id="P-6" type="Part" name="Seat"/>
+    <item id="P-7" type="Part" name="Sport Seat"/>
+    <item id="P-8" type="Part" name="Bolt M8" description="Reused in several places"/>
+    <item id="P-9" type="Part" name="Emission Kit EU"/>
+    <item id="P-10" type="Part" name="Emission Kit US"/>
+    <item id="A-5" type="Assembly" name="Chassis"/>
+    <item id="A-6" type="Assembly" name="Interior"/>
+    <item id="S-1" type="Station" name="Body Shop"/>
+    <item id="S-2" type="Station" name="Powertrain Line"/>
+    <item id="S-3" type="Station" name="Final Assembly"/>
   </items>
-  <bom id="EBOM" name="Engineering BOM" type="EBOM" root="I1">
+  <bom id="EBOM" name="Engineering BOM" type="EBOM" root="A-1">
     <relations>
-      <relation id="R1" parent="I1" child="I2" qty="1" findNo="10"/>
-      <relation id="R2" parent="I1" child="I15" qty="1" findNo="20"/>
-      <relation id="R3" parent="I1" child="I3" qty="1" findNo="30"/>
-      <relation id="R4" parent="I1" child="I16" qty="1" findNo="40"/>
-      <relation id="R5" parent="I3" child="I4" qty="1" findNo="10">
+      <relation id="R1" parent="A-1" child="A-2" qty="1" findNo="10"/>
+      <relation id="R2" parent="A-1" child="A-5" qty="1" findNo="20"/>
+      <relation id="R3" parent="A-1" child="A-3" qty="1" findNo="30"/>
+      <relation id="R4" parent="A-1" child="A-6" qty="1" findNo="40"/>
+      <relation id="R5" parent="A-3" child="P-1" qty="1" findNo="10">
         <variant>ENGINE=V6</variant>
         <effectivity dateTo="2027-06-30"/>
       </relation>
-      <relation id="R6" parent="I3" child="I5" qty="1" findNo="20">
+      <relation id="R6" parent="A-3" child="P-2" qty="1" findNo="20">
         <variant>ENGINE=V8 AND MARKET=US</variant>
       </relation>
-      <relation id="R7" parent="I3" child="I6" qty="1" findNo="30">
+      <relation id="R7" parent="A-3" child="P-3" qty="1" findNo="30">
         <variant>ENGINE=EV</variant>
         <effectivity dateFrom="2026-09-01"/>
       </relation>
-      <relation id="R8" parent="I3" child="I7" qty="1" findNo="40">
+      <relation id="R8" parent="A-3" child="A-4" qty="1" findNo="40">
         <variant>ENGINE=EV</variant>
         <effectivity unitFrom="100"/>
       </relation>
-      <relation id="R9" parent="I3" child="I8" qty="1" findNo="50">
+      <relation id="R9" parent="A-3" child="P-4" qty="1" findNo="50">
         <variant>NOT ENGINE=EV</variant>
       </relation>
-      <relation id="R15" parent="I3" child="I13" qty="1" findNo="60">
+      <relation id="R15" parent="A-3" child="P-9" qty="1" findNo="60">
         <variant>MARKET=EU AND ENGINE!=EV</variant>
       </relation>
-      <relation id="R16" parent="I3" child="I14" qty="1" findNo="70">
+      <relation id="R16" parent="A-3" child="P-10" qty="1" findNo="70">
         <variant>MARKET=US AND ENGINE!=EV</variant>
         <effectivity unitFrom="1" unitTo="499"/>
       </relation>
-      <relation id="R10" parent="I15" child="I9" qty="4" findNo="10"/>
-      <relation id="R11" parent="I9" child="I12" qty="5" findNo="10"/>
-      <relation id="R12" parent="I2" child="I12" qty="24" findNo="10"/>
-      <relation id="R13" parent="I16" child="I10" qty="5" findNo="10">
+      <relation id="R10" parent="A-5" child="P-5" qty="4" findNo="10"/>
+      <relation id="R11" parent="P-5" child="P-8" qty="5" findNo="10"/>
+      <relation id="R12" parent="A-2" child="P-8" qty="24" findNo="10"/>
+      <relation id="R13" parent="A-6" child="P-6" qty="5" findNo="10">
         <variant>TRIM=BASE</variant>
       </relation>
-      <relation id="R14" parent="I16" child="I11" qty="5" findNo="20">
+      <relation id="R14" parent="A-6" child="P-7" qty="5" findNo="20">
         <variant>TRIM=SPORT AND ENGINE IN (V8, EV)</variant>
       </relation>
     </relations>
   </bom>
-  <bom id="MBOM" name="Manufacturing BOM" type="MBOM" root="I1">
+  <bom id="MBOM" name="Manufacturing BOM" type="MBOM" root="A-1">
     <relations>
-      <relation id="R20" parent="I1" child="I20" qty="1" findNo="10"/>
-      <relation id="R21" parent="I20" child="I2" qty="1" findNo="10"/>
-      <relation id="R22" parent="I1" child="I21" qty="1" findNo="20"/>
-      <relation id="R23" parent="I21" child="I4" qty="1" findNo="10">
+      <relation id="R20" parent="A-1" child="S-1" qty="1" findNo="10"/>
+      <relation id="R21" parent="S-1" child="A-2" qty="1" findNo="10"/>
+      <relation id="R22" parent="A-1" child="S-2" qty="1" findNo="20"/>
+      <relation id="R23" parent="S-2" child="P-1" qty="1" findNo="10">
         <variant>ENGINE=V6</variant>
       </relation>
-      <relation id="R24" parent="I21" child="I5" qty="1" findNo="20">
+      <relation id="R24" parent="S-2" child="P-2" qty="1" findNo="20">
         <variant>ENGINE=V8</variant>
       </relation>
-      <relation id="R25" parent="I21" child="I6" qty="1" findNo="30">
+      <relation id="R25" parent="S-2" child="P-3" qty="1" findNo="30">
         <variant>ENGINE=EV</variant>
       </relation>
-      <relation id="R26" parent="I1" child="I22" qty="1" findNo="30"/>
-      <relation id="R27" parent="I22" child="I9" qty="4" findNo="10"/>
-      <relation id="R28" parent="I22" child="I10" qty="5" findNo="20">
+      <relation id="R26" parent="A-1" child="S-3" qty="1" findNo="30"/>
+      <relation id="R27" parent="S-3" child="P-5" qty="4" findNo="10"/>
+      <relation id="R28" parent="S-3" child="P-6" qty="5" findNo="20">
         <variant>TRIM=BASE</variant>
       </relation>
     </relations>

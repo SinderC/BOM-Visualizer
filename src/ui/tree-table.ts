@@ -4,7 +4,7 @@ import { occurrencePath } from '../model';
 import type { Occurrence } from '../resolve';
 
 const INDENT = 18;
-const COLUMNS = ['Name', 'Qty', 'Find no', 'Variant', 'Effectivity'];
+const COLUMNS = ['Name', 'Type', 'Qty', 'Find no', 'Variant', 'Effectivity'];
 
 /** Indented tree-table (structure-manager style) with collapse, selection and keyboard navigation. */
 export function createTreeTable(container: HTMLElement, app: App) {
@@ -91,6 +91,7 @@ function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelec
       dataset: { address: occ.address },
     },
     name,
+    h('td', { className: 'type' }, occ.item.type ?? ''),
     h('td', { className: 'num' }, rel ? String(rel.qty) : ''),
     h('td', { className: 'num' }, rel?.findNo ?? ''),
     h('td', { className: 'expr', title: rel?.variantExpr ?? '' }, rel?.variantExpr ?? ''),

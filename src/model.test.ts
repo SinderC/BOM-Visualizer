@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addItem, addRelation, createDocument, nextId, removeRelation, validateDocument } from './model';
+import { addItem, addItemType, addRelation, createDocument, nextId, removeRelation, renameItem, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -13,6 +13,15 @@ describe('model', () => {
   it('generates next ids after the highest existing one', () => {
     expect(nextId('R', ['R1', 'R9', 'R10', 'X99'])).toBe('R11');
     expect(nextId('I', [])).toBe('I1');
+    expect(nextId('P-', ['P-9', 'PX1', 'I3'])).toBe('P-10');
+  });
+
+  it('prefixes new item ids by type', () => {
+    const doc = createDocument();
+    expect(addItem(doc, 'Bolt', '', 'Part').id).toBe('P-1');
+    expect(addItem(doc, 'Frame', '', 'Assembly').id).toBe('A-1');
+    expect(addItem(doc, 'Nut', '', 'Part')).toMatchObject({ id: 'P-2', type: 'Part' });
+    expect(addItem(doc, 'Thing').id).toBe('I2'); // I1 is the BOM root
   });
 
   it('assigns increasing find numbers', () => {
@@ -52,5 +61,34 @@ describe('model', () => {
     expect(errors).toContain(`Duplicate relation id ${r.id}`);
     expect(errors).toContain('Relation R50: child I999 does not exist');
     expect(errors.some((e) => e.includes('cycle'))).toBe(true);
+  });
+
+  it('renames an item and rewrites relation and root references', () => {
+    const { doc, bom, a, b, root } = setup();
+    const r = addRelation(doc, bom, root, a.id);
+    addRelation(doc, bom, a.id, b.id);
+    renameItem(doc, a.id, 'PN-1');
+    renameItem(doc, root, 'TOP');
+    expect([...doc.items.keys()]).toEqual(['TOP', 'PN-1', b.id]);
+    expect(doc.items.get('PN-1')!.id).toBe('PN-1');
+    expect(bom.rootId).toBe('TOP');
+    expect(bom.relations.find((x) => x.id === r.id)).toMatchObject({ parentId: 'TOP', childId: 'PN-1' });
+    expect(validateDocument(doc)).toEqual([]);
+  });
+
+  it('rejects empty, spaced or taken item ids', () => {
+    const { doc, a, b } = setup();
+    expect(() => renameItem(doc, a.id, '')).toThrow(/non-empty/);
+    expect(() => renameItem(doc, a.id, 'P 1')).toThrow(/no spaces/);
+    expect(() => renameItem(doc, a.id, b.id)).toThrow(/already in use/);
+  });
+
+  it('adds item types once and flags unknown ones', () => {
+    const { doc, a } = setup();
+    expect(addItemType(doc, ' Tool ')).toBe('Tool');
+    addItemType(doc, 'Tool');
+    expect(doc.itemTypes.filter((t) => t === 'Tool')).toHaveLength(1);
+    a.type = 'Nope';
+    expect(validateDocument(doc)).toContain(`Item ${a.id}: unknown type 'Nope'`);
   });
 });

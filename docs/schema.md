@@ -7,12 +7,15 @@ One XML file holds one `<bomDocument>`: shared option families and items, one or
   <optionFamilies>
     <family name="ENGINE"><value>V6</value><value>V8</value></family>
   </optionFamilies>
+  <itemTypes>
+    <type>Part</type><type>Assembly</type>
+  </itemTypes>
   <items>
-    <item id="I1" name="Car" description="optional"/>
+    <item id="A-1" type="Assembly" name="Car" description="optional"/>
   </items>
-  <bom id="EBOM" name="Engineering BOM" root="I1">
+  <bom id="EBOM" name="Engineering BOM" root="A-1">
     <relations>
-      <relation id="R1" parent="I1" child="I2" qty="1" findNo="10">
+      <relation id="R1" parent="A-1" child="P-1" qty="1" findNo="10">
         <variant>ENGINE=V8 AND MARKET IN (EU, US)</variant>
         <effectivity dateFrom="2026-01-01" dateTo="2027-06-30" unitFrom="10" unitTo="499"/>
       </relation>
@@ -30,7 +33,8 @@ One XML file holds one `<bomDocument>`: shared option families and items, one or
 |---|---|
 | `bomDocument@version` | Format version. Readers reject versions newer than they support. |
 | `family` | `name` + ordered `<value>` list. Shared by all BOMs. |
-| `item` | Part identity (`id`, `name`, `description`). Shared by all BOMs; may be used under many parents. |
+| `itemTypes` | Ordered list of allowed item `<type>` names. Optional; if absent, the defaults `Part`, `Assembly`, `Station` apply. |
+| `item` | Part identity (`id`, `type`, `name`, `description`). `type` is optional and must be listed in `itemTypes`. Shared by all BOMs; may be used under many parents. |
 | `bom` | `id`, `name`, `root` (item id). Holds its own relations. |
 | `relation` | Parent→child usage: `id`, `parent`, `child`, `qty`, `findNo`. **Relation ids are unique across the whole document.** |
 | `variant` | Optional boolean expression (see below). Missing/blank = always included. |
@@ -65,4 +69,4 @@ primary := '(' or ')' | FAMILY ('=' | '!=') VALUE | FAMILY 'IN' '(' VALUE (',' V
 
 ## Load-time checks
 
-Well-formed XML, `<bomDocument>` root, supported version, at least one BOM, unique item and relation ids, existing parent/child/root references, no cycles within a BOM.
+Well-formed XML, `<bomDocument>` root, supported version, at least one BOM, unique item and relation ids, known item types, existing parent/child/root references, no cycles within a BOM.

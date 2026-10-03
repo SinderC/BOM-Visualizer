@@ -9,6 +9,7 @@ export interface Item {
   id: string;
   name: string;
   description: string;
+  type?: string; // one of BomDocument.itemTypes
 }
 
 /** Parent→child usage within one BOM. Variant and effectivity live here, not on the item. */
@@ -45,7 +46,11 @@ export interface Alignment {
   target: string;
 }
 
+/** Starting list for new documents and for files written before item types existed. */
+export const DEFAULT_ITEM_TYPES = ['Part', 'Assembly', 'Station'];
+
 export interface BomDocument {
+  itemTypes: string[];
   items: Map<string, Item>;
   families: OptionFamily[];
   boms: Bom[];
@@ -58,7 +63,7 @@ export function occurrencePath(bomId: string, relationIds: string[]): string {
 }
 
 export function createDocument(): BomDocument {
-  const doc: BomDocument = { items: new Map(), families: [], boms: [], alignments: [] };
+  const doc: BomDocument = { itemTypes: [...DEFAULT_ITEM_TYPES], items: new Map(), families: [], boms: [], alignments: [] };
   addBom(doc, 'Main', 'EBOM');
   return doc;
 }
@@ -66,7 +71,7 @@ export function createDocument(): BomDocument {
 /** Next free id with the given prefix, e.g. `R12` when `R11` is the highest. */
 export function nextId(prefix: string, existing: Iterable<string>): string {
   let max = 0;
-  const re = new RegExp(`^${prefix}(\\d+)$`);
+  const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)$`);
   for (const id of existing) {
     const m = re.exec(id);
     if (m) max = Math.max(max, Number(m[1]));
@@ -86,8 +91,13 @@ export function childrenOf(bom: Bom, itemId: string): Relation[] {
   return bom.relations.filter((r) => r.parentId === itemId);
 }
 
-export function addItem(doc: BomDocument, name: string, description = ''): Item {
-  const item = { id: nextId('I', doc.items.keys()), name, description };
+/** Id prefix from the type's first letter, e.g. `P-` for Part; `I` for untyped items. */
+export function itemIdPrefix(type?: string): string {
+  return type ? `${type[0].toUpperCase()}-` : 'I';
+}
+
+export function addItem(doc: BomDocument, name: string, description = '', type?: string): Item {
+  const item = { id: nextId(itemIdPrefix(type), doc.items.keys()), name, description, type };
   doc.items.set(item.id, item);
   return item;
 }
@@ -95,6 +105,31 @@ export function addItem(doc: BomDocument, name: string, description = ''): Item 
 export function updateItem(doc: BomDocument, id: string, patch: Partial<Omit<Item, 'id'>>): void {
   const item = doc.items.get(id);
   if (item) Object.assign(item, patch);
+}
+
+/** Changes an item's id and rewrites every reference to it. Occurrence addresses use relation ids, so they are unaffected. */
+export function renameItem(doc: BomDocument, oldId: string, newId: string): void {
+  if (!doc.items.has(oldId)) throw new Error(`Unknown item ${oldId}`);
+  if (!newId || /\s/.test(newId)) throw new Error('Item id must be non-empty and contain no spaces');
+  if (newId === oldId) return;
+  if (doc.items.has(newId)) throw new Error(`Item id ${newId} is already in use`);
+  // Rebuilt rather than delete+set to keep the item's position in the saved file.
+  doc.items = new Map([...doc.items].map(([id, item]) => (id === oldId ? [newId, Object.assign(item, { id: newId })] : [id, item])));
+  for (const bom of doc.boms) {
+    if (bom.rootId === oldId) bom.rootId = newId;
+    for (const r of bom.relations) {
+      if (r.parentId === oldId) r.parentId = newId;
+      if (r.childId === oldId) r.childId = newId;
+    }
+  }
+}
+
+/** Adds a type to the document's item type list; returns the trimmed name. */
+export function addItemType(doc: BomDocument, name: string): string {
+  const type = name.trim();
+  if (!type) throw new Error('Type name is empty');
+  if (!doc.itemTypes.includes(type)) doc.itemTypes.push(type);
+  return type;
 }
 
 /** True if `ancestorId` is reachable from `itemId` going downwards in the BOM. */
@@ -151,6 +186,9 @@ export function validateDocument(doc: BomDocument): string[] {
   const errors: string[] = [];
   const relIds = new Set<string>();
   const bomIds = new Set<string>();
+  for (const item of doc.items.values()) {
+    if (item.type && !doc.itemTypes.includes(item.type)) errors.push(`Item ${item.id}: unknown type '${item.type}'`);
+  }
   for (const bom of doc.boms) {
     if (bomIds.has(bom.id)) errors.push(`Duplicate BOM id ${bom.id}`);
     bomIds.add(bom.id);
