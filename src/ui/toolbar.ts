@@ -24,19 +24,68 @@ function menu(label: string, items: HTMLButtonElement[]): HTMLElement {
   return h('span', {}, trigger, list);
 }
 
-async function openFile(app: App, file: File): Promise<void> {
-  try {
-    app.loadDocument(parseXml(await file.text()), file.name);
-    app.toast(`Opened ${file.name}`);
-  } catch (e) {
-    app.toast(`Could not open ${file.name}: ${(e as Error).message}`, true);
+// File System Access API (Chromium only); not yet in TypeScript's DOM lib.
+interface PickerOptions {
+  suggestedName?: string;
+  types?: { description: string; accept: Record<string, string[]> }[];
+}
+declare global {
+  interface Window {
+    showOpenFilePicker?(options?: PickerOptions): Promise<FileSystemFileHandle[]>;
+    showSaveFilePicker?(options?: PickerOptions): Promise<FileSystemFileHandle>;
   }
 }
 
-function saveFile(app: App): void {
+const XML_TYPES = [{ description: 'BOM XML', accept: { 'application/xml': ['.xml'] } }];
+const canWrite = 'showSaveFilePicker' in window;
+
+/** File that Save writes back to; unset until the document is opened from or saved to disk. */
+let fileHandle: FileSystemFileHandle | undefined;
+
+const isAbort = (e: unknown) => (e as Error).name === 'AbortError';
+
+async function openFile(app: App, file: File): Promise<boolean> {
+  try {
+    app.loadDocument(parseXml(await file.text()), file.name);
+    app.toast(`Opened ${file.name}`);
+    return true;
+  } catch (e) {
+    app.toast(`Could not open ${file.name}: ${(e as Error).message}`, true);
+    return false;
+  }
+}
+
+async function pickAndOpen(app: App, fileInput: HTMLInputElement): Promise<void> {
+  if (!window.showOpenFilePicker) return fileInput.click();
+  try {
+    const [handle] = await window.showOpenFilePicker({ types: XML_TYPES });
+    if (await openFile(app, await handle.getFile())) fileHandle = handle;
+  } catch (e) {
+    if (!isAbort(e)) app.toast(`Could not open file: ${(e as Error).message}`, true);
+  }
+}
+
+function download(app: App): void {
   const url = URL.createObjectURL(new Blob([serializeXml(app.state.doc)], { type: 'application/xml' }));
   h('a', { href: url, download: app.state.fileName }).click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function saveFile(app: App, saveAs = false): Promise<void> {
+  if (!window.showSaveFilePicker) return download(app);
+  try {
+    if (saveAs || !fileHandle) {
+      fileHandle = await window.showSaveFilePicker({ suggestedName: app.state.fileName, types: XML_TYPES });
+    }
+    const writable = await fileHandle.createWritable();
+    await writable.write(serializeXml(app.state.doc));
+    await writable.close();
+    const { name } = fileHandle;
+    app.commit(() => (app.state.fileName = name));
+    app.toast(`Saved ${name}`);
+  } catch (e) {
+    if (!isAbort(e)) app.toast(`Could not save: ${(e as Error).message}`, true);
+  }
 }
 
 export function renderToolbar(container: HTMLElement, app: App): void {
@@ -46,6 +95,7 @@ export function renderToolbar(container: HTMLElement, app: App): void {
   const fileInput = h('input', { type: 'file', accept: '.xml,application/xml,text/xml', hidden: true });
   fileInput.addEventListener('change', () => {
     const file = fileInput.files?.[0];
+    fileInput.value = '';
     if (file) void openFile(app, file);
   });
 
@@ -62,9 +112,13 @@ export function renderToolbar(container: HTMLElement, app: App): void {
   container.replaceChildren(
     h('strong', { className: 'brand' }, 'BOM Visualizer'),
     menu('File', [
-      button('New', 'Start an empty document', () => app.loadDocument(createDocument(), 'untitled.xml')),
-      button('Open…', 'Open a BOM XML file', () => fileInput.click()),
-      button('Save', `Download as ${state.fileName}`, () => saveFile(app)),
+      button('New', 'Start an empty document', () => {
+        fileHandle = undefined;
+        app.loadDocument(createDocument(), 'untitled.xml');
+      }),
+      button('Open…', 'Open a BOM XML file', () => void pickAndOpen(app, fileInput)),
+      button('Save', canWrite ? `Save ${state.fileName}` : `Download as ${state.fileName}`, () => void saveFile(app)),
+      ...(canWrite ? [button('Save As…', 'Save to a new file', () => void saveFile(app, true))] : []),
     ]),
     fileInput,
     h('span', { className: 'sep' }),
