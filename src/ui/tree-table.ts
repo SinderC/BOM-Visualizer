@@ -1,6 +1,6 @@
 import { activeBom, h, type App } from '../app';
 import { formatEff } from '../effectivity';
-import { occurrencePath } from '../model';
+import { moveRelation, occurrencePath } from '../model';
 import type { Occurrence } from '../resolve';
 
 const INDENT = 18;
@@ -28,6 +28,59 @@ export function createTreeTable(container: HTMLElement, app: App) {
     if (!address) return;
     if (target.closest('.twisty')) setCollapsed(address, !app.state.collapsed.has(address));
     else select(address);
+  });
+
+  // Drag a row onto another row to re-parent it there.
+  let dragged: Occurrence | undefined;
+  let dropRow: HTMLElement | undefined;
+  const setDropRow = (row: HTMLElement | undefined) => {
+    dropRow?.classList.remove('drop-target');
+    dropRow = row;
+    row?.classList.add('drop-target');
+  };
+  /** Drop target under the pointer, if the dragged row may be moved onto it. Other cycles are caught by moveRelation. */
+  const dropTargetAt = (e: DragEvent) => {
+    const row = (e.target as HTMLElement).closest('tr');
+    const target = app.occurrence(row?.dataset.address);
+    if (!row || !target || !dragged?.relation) return undefined;
+    const inOwnSubtree = target.address === dragged.address || target.address.startsWith(`${dragged.address}/`);
+    if (inOwnSubtree || target.item.id === dragged.relation.parentId) return undefined;
+    return { row, target };
+  };
+
+  table.addEventListener('dragstart', (e) => {
+    dragged = app.occurrence((e.target as HTMLElement).closest('tr')?.dataset.address);
+    if (!dragged?.relation) return e.preventDefault();
+    e.dataTransfer!.effectAllowed = 'move';
+    e.dataTransfer!.setData('text/plain', dragged.address); // Firefox needs data to start a drag
+  });
+  table.addEventListener('dragover', (e) => {
+    const hit = dropTargetAt(e);
+    setDropRow(hit?.row);
+    if (hit) e.preventDefault();
+  });
+  table.addEventListener('dragleave', (e) => {
+    if (!table.contains(e.relatedTarget as Node | null)) setDropRow(undefined);
+  });
+  table.addEventListener('dragend', () => {
+    setDropRow(undefined);
+    dragged = undefined;
+  });
+  table.addEventListener('drop', (e) => {
+    const hit = dropTargetAt(e);
+    if (!hit || !dragged?.relation) return;
+    e.preventDefault();
+    const relId = dragged.relation.id;
+    const { target } = hit;
+    try {
+      app.commit(() => {
+        moveRelation(activeBom(app.state), relId, target.item.id);
+        app.state.collapsed.delete(target.address);
+        app.state.selected = occurrencePath(activeBom(app.state).id, [...target.path, relId]);
+      });
+    } catch (err) {
+      app.toast((err as Error).message, true);
+    }
   });
 
   table.addEventListener('keydown', (e) => {
@@ -88,6 +141,7 @@ function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelec
     {
       className: `st-${occ.status}${isSelected ? ' selected' : ''}`,
       title: [occ.item.description, occ.reason].filter(Boolean).join('\n'),
+      draggable: !!rel,
       dataset: { address: occ.address },
     },
     name,

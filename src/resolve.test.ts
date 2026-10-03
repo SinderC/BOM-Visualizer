@@ -41,4 +41,13 @@ describe('resolve', () => {
     expect(s['EBOM:R2']).toBe('excludedByVariant');
     expect(s['EBOM:R2/R10/R11']).toBe('excludedByParent');
   });
+
+  it('orders children by find number', () => {
+    const custom = structuredClone(doc);
+    const bom = custom.boms.find((b) => b.id === 'EBOM')!;
+    const kids = bom.relations.filter((r) => r.parentId === bom.rootId);
+    ['30', '9', '10A', '10'].forEach((f, i) => (kids[i].findNo = f));
+    const order = resolve(custom, bom, { enabled: false, options: {} }).children.map((o) => o.relation!.findNo);
+    expect(order).toEqual(['9', '10', '10A', '30']);
+  });
 });

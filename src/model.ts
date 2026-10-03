@@ -138,19 +138,24 @@ function reaches(bom: Bom, itemId: string, ancestorId: string): boolean {
   return childrenOf(bom, itemId).some((r) => reaches(bom, r.childId, ancestorId));
 }
 
+function assertNoCycle(bom: Bom, parentId: string, childId: string): void {
+  if (reaches(bom, childId, parentId)) throw new Error(`Adding ${childId} under ${parentId} would create a cycle`);
+}
+
+/** Find number after the highest one under `parentId`, in steps of 10. */
+function nextFindNo(bom: Bom, parentId: string): string {
+  return String(Math.max(0, ...childrenOf(bom, parentId).map((r) => Number(r.findNo) || 0)) + 10);
+}
+
 export function addRelation(doc: BomDocument, bom: Bom, parentId: string, childId: string): Relation {
   if (!doc.items.has(parentId) || !doc.items.has(childId)) throw new Error('Unknown item');
-  if (reaches(bom, childId, parentId)) {
-    throw new Error(`Adding ${childId} under ${parentId} would create a cycle`);
-  }
-  const siblings = childrenOf(bom, parentId);
-  const maxFind = Math.max(0, ...siblings.map((r) => Number(r.findNo) || 0));
+  assertNoCycle(bom, parentId, childId);
   const rel: Relation = {
     id: nextId('R', allRelations(doc).map((r) => r.id)),
     parentId,
     childId,
     qty: 1,
-    findNo: String(maxFind + 10),
+    findNo: nextFindNo(bom, parentId),
     variantExpr: '',
     eff: {},
   };
@@ -161,6 +166,17 @@ export function addRelation(doc: BomDocument, bom: Bom, parentId: string, childI
 export function updateRelation(bom: Bom, id: string, patch: Partial<Omit<Relation, 'id'>>): void {
   const rel = bom.relations.find((r) => r.id === id);
   if (rel) Object.assign(rel, patch);
+}
+
+/** Re-parents a relation, keeping its id, qty, variant and effectivity; the find number is renumbered under the new parent. */
+export function moveRelation(bom: Bom, id: string, newParentId: string): Relation {
+  const rel = bom.relations.find((r) => r.id === id);
+  if (!rel) throw new Error(`Unknown relation ${id}`);
+  if (rel.parentId === newParentId) return rel;
+  assertNoCycle(bom, newParentId, rel.childId);
+  rel.findNo = nextFindNo(bom, newParentId);
+  rel.parentId = newParentId;
+  return rel;
 }
 
 /** Removes the relation, and the child's own relations if the child is no longer used in this BOM. */

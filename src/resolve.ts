@@ -32,13 +32,16 @@ export function resolve(doc: BomDocument, bom: Bom, ctx: ConfigContext): Occurre
     };
     if (relation && ctx.enabled) Object.assign(occ, judge(relation, ctx, parentIncluded));
     const included = occ.status === 'included';
-    occ.children = childrenOf(bom, item.id).map((r) =>
-      build(doc.items.get(r.childId)!, r, [...path, r.id], included),
-    );
+    occ.children = childrenOf(bom, item.id)
+      .sort(byFindNo)
+      .map((r) => build(doc.items.get(r.childId)!, r, [...path, r.id], included));
     return occ;
   };
   return build(doc.items.get(bom.rootId)!, undefined, [], true);
 }
+
+/** Natural order, so `9` < `10` < `10A`; ties keep file order. */
+const byFindNo = (a: Relation, b: Relation) => a.findNo.localeCompare(b.findNo, undefined, { numeric: true });
 
 function judge(rel: Relation, ctx: ConfigContext, parentIncluded: boolean): Pick<Occurrence, 'status' | 'reason'> {
   if (!parentIncluded) return { status: 'excludedByParent', reason: 'Parent is excluded' };

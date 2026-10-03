@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addItem, addItemType, addRelation, createDocument, nextId, removeRelation, renameItem, validateDocument } from './model';
+import { addItem, addItemType, addRelation, createDocument, moveRelation, nextId, removeRelation, renameItem, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -28,6 +28,17 @@ describe('model', () => {
     const { doc, bom, a, b, root } = setup();
     expect(addRelation(doc, bom, root, a.id).findNo).toBe('10');
     expect(addRelation(doc, bom, root, b.id).findNo).toBe('20');
+  });
+
+  it('moves a relation to a new parent, keeping its data', () => {
+    const { doc, bom, a, b, root } = setup();
+    addRelation(doc, bom, root, a.id);
+    const rel = addRelation(doc, bom, root, b.id);
+    Object.assign(rel, { qty: 3, variantExpr: 'ENGINE=V8' });
+    moveRelation(bom, rel.id, a.id);
+    expect(rel).toMatchObject({ parentId: a.id, qty: 3, variantExpr: 'ENGINE=V8', findNo: '10' });
+    expect(() => moveRelation(bom, rel.id, b.id)).toThrow(/cycle/);
+    expect(rel.parentId).toBe(a.id);
   });
 
   it('rejects cycles', () => {
