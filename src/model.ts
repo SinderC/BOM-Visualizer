@@ -142,6 +142,39 @@ export function addItemType(doc: BomDocument, name: string): string {
   return type;
 }
 
+function getFamily(doc: BomDocument, name: string): OptionFamily {
+  const family = doc.families.find((f) => f.name === name);
+  if (!family) throw new Error(`Unknown option family ${name}`);
+  return family;
+}
+
+/** Adds an empty family named `FAMILY<n>` with the first free n. */
+export function addFamily(doc: BomDocument): OptionFamily {
+  let n = doc.families.length + 1;
+  while (doc.families.some((f) => f.name === `FAMILY${n}`)) n++;
+  const family = { name: `FAMILY${n}`, values: [] };
+  doc.families.push(family);
+  return family;
+}
+
+/** Renames a family. Variant expressions that use the old name are not rewritten. */
+export function renameFamily(doc: BomDocument, oldName: string, newName: string): void {
+  const family = getFamily(doc, oldName);
+  if (!newName || doc.families.some((f) => f !== family && f.name === newName)) {
+    throw new Error(`Family name '${newName}' is empty or already used`);
+  }
+  family.name = newName;
+}
+
+/** Sets a family's values, trimmed, without blanks or duplicates. */
+export function setFamilyValues(doc: BomDocument, name: string, values: string[]): void {
+  getFamily(doc, name).values = [...new Set(values.map((v) => v.trim()).filter(Boolean))];
+}
+
+export function removeFamily(doc: BomDocument, name: string): void {
+  doc.families = doc.families.filter((f) => f.name !== name);
+}
+
 /** True if `ancestorId` is reachable from `itemId` going downwards in the BOM. */
 function reaches(bom: Bom, itemId: string, ancestorId: string): boolean {
   if (itemId === ancestorId) return true;

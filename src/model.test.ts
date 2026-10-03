@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addItem, addItemType, addRelation, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, parseUnit, removeRelation, renameItem, validateDocument } from './model';
+import { addFamily, addItem, addItemType, addRelation, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -141,5 +141,18 @@ describe('model', () => {
     expect(doc.itemTypes.filter((t) => t === 'Tool')).toHaveLength(1);
     a.type = 'Nope';
     expect(validateDocument(doc)).toContain(`Item ${a.id}: unknown type 'Nope'`);
+  });
+
+  it('adds, renames, sets values of and removes option families', () => {
+    const doc = createDocument();
+    expect(addFamily(doc).name).toBe('FAMILY1');
+    renameFamily(doc, 'FAMILY1', 'FAMILY2');
+    expect(addFamily(doc).name).toBe('FAMILY3');
+    expect(() => renameFamily(doc, 'FAMILY3', 'FAMILY2')).toThrow(/already used/);
+    expect(() => renameFamily(doc, 'FAMILY3', '')).toThrow(/empty/);
+    setFamilyValues(doc, 'FAMILY2', [' A', 'B', '', 'A ']);
+    expect(doc.families[0].values).toEqual(['A', 'B']);
+    removeFamily(doc, 'FAMILY2');
+    expect(doc.families.map((f) => f.name)).toEqual(['FAMILY3']);
   });
 });

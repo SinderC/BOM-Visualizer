@@ -1,6 +1,7 @@
 import { openDoc, type App } from '../app';
+import { addFamily, removeFamily, renameFamily, setFamilyValues } from '../model';
 import type { Occurrence } from '../resolve';
-import { field, h, input } from './dom';
+import { button, field, h, input } from './dom';
 import { setApplyConfig } from './view';
 
 function count(o: Occurrence): { total: number; included: number } {
@@ -54,45 +55,37 @@ function renderFamilies(app: App): HTMLElement[] {
   const doc = openDoc(app.state);
   const { ctx } = app.state;
   const rows = doc.families.map((f, i) => {
-    const name = h('input', { name: `fam-${i}-name`, value: f.name, className: 'mono', title: 'Family name' });
-    name.addEventListener('change', () => {
-      const newName = name.value.trim();
-      if (!newName || doc.families.some((o) => o !== f && o.name === newName)) {
-        app.toast(`Family name '${newName}' is empty or already used`, true);
-        name.value = f.name;
-        return;
-      }
+    const name = input(
+      `fam-${i}-name`,
+      f.name,
+      (v) =>
+        app.tryCommit(() => {
+          const oldName = f.name;
+          renameFamily(doc, oldName, v);
+          ctx.options[v] = ctx.options[oldName];
+          if (v !== oldName) delete ctx.options[oldName];
+        }),
+      { className: 'mono', title: 'Family name' },
+    );
+    const values = input(
+      `fam-${i}-values`,
+      f.values.join(', '),
+      (v) =>
+        app.commit(() => {
+          setFamilyValues(doc, f.name, v.split(','));
+          if (!f.values.includes(ctx.options[f.name] ?? '')) delete ctx.options[f.name];
+        }),
+      { className: 'mono', title: 'Comma-separated values' },
+    );
+    const remove = () =>
       app.commit(() => {
-        ctx.options[newName] = ctx.options[f.name];
+        removeFamily(doc, f.name);
         delete ctx.options[f.name];
-        f.name = newName;
       });
-    });
-    const values = h('input', { name: `fam-${i}-values`, value: f.values.join(', '), className: 'mono', title: 'Comma-separated values' });
-    values.addEventListener('change', () =>
-      app.commit(() => {
-        f.values = [...new Set(values.value.split(',').map((v) => v.trim()).filter(Boolean))];
-        if (!f.values.includes(ctx.options[f.name] ?? '')) delete ctx.options[f.name];
-      }),
-    );
-    const remove = h('button', { className: 'icon', title: `Remove ${f.name}` }, '✕');
-    remove.addEventListener('click', () =>
-      app.commit(() => {
-        doc.families = doc.families.filter((o) => o !== f);
-        delete ctx.options[f.name];
-      }),
-    );
-    return h('div', { className: 'family-row' }, name, values, remove);
+    return h('div', { className: 'family-row' }, name, values, button({ className: 'icon', title: `Remove ${f.name}` }, remove, '✕'));
   });
 
-  const add = h('button', {}, '+ Add family');
-  add.addEventListener('click', () =>
-    app.commit(() => {
-      let n = doc.families.length + 1;
-      while (doc.families.some((f) => f.name === `FAMILY${n}`)) n++;
-      doc.families.push({ name: `FAMILY${n}`, values: [] });
-    }),
-  );
+  const add = button({}, () => app.commit(() => addFamily(doc)), '+ Add family');
   return [
     ...rows,
     add,
