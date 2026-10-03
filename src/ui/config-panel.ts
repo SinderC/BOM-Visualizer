@@ -1,20 +1,15 @@
 import { openDoc, type App } from '../app';
 import { addFamily, removeFamily, renameFamily, setFamilyValues } from '../model';
-import type { Occurrence } from '../resolve';
+import { flatten, type Occurrence } from '../resolve';
 import { button, field, h, input } from './dom';
 import { setApplyConfig } from './view';
-
-function count(o: Occurrence): { total: number; included: number } {
-  return o.children.map(count).reduce(
-    (acc, c) => ({ total: acc.total + c.total, included: acc.included + c.included }),
-    { total: 1, included: o.status === 'included' ? 1 : 0 },
-  );
-}
 
 export function renderConfigPanel(container: HTMLElement, app: App, root: Occurrence): void {
   const doc = openDoc(app.state);
   const { ctx } = app.state;
-  const { total, included } = count(root);
+  const all = flatten(root);
+  const total = all.length;
+  const included = all.filter((o) => o.status === 'included').length;
 
   const enabled = h('input', { type: 'checkbox', name: 'cfg-enabled', checked: ctx.enabled });
   enabled.addEventListener('change', () => app.commit(() => setApplyConfig((ctx.enabled = enabled.checked))));

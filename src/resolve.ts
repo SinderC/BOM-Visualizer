@@ -38,6 +38,11 @@ export function resolve(doc: BomDocument, bom: Bom, ctx: ConfigContext): Occurre
   return build(doc.items.get(bom.rootId)!, undefined, [], true);
 }
 
+/** The occurrence and all its descendants, depth first. */
+export function flatten(occ: Occurrence): Occurrence[] {
+  return [occ, ...occ.children.flatMap(flatten)];
+}
+
 function judge(rel: Relation, ctx: ConfigContext, parentIncluded: boolean): Pick<Occurrence, 'status' | 'reason'> {
   if (!parentIncluded) return { status: 'excludedByParent', reason: 'Parent is excluded' };
   const { ast, errors } = parse(rel.variantExpr);

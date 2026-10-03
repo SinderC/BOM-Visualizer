@@ -2,7 +2,7 @@ import './styles.css';
 import { activeBom, resetView, type App, type State } from './app';
 import { loadAutosave, writeAutosave, type Autosaved } from './autosave';
 import { createHistory } from './history';
-import { resolve, type Occurrence } from './resolve';
+import { flatten, resolve, type Occurrence } from './resolve';
 import sample from './samples/car.xml?raw';
 import { renderConfigPanel } from './ui/config-panel';
 import { renderEditor } from './ui/editor';
@@ -116,12 +116,7 @@ function render(): void {
     return;
   }
   const root = resolve(state.doc, activeBom(state), state.ctx);
-  index = new Map();
-  const walk = (o: Occurrence) => {
-    index.set(o.address, o);
-    o.children.forEach(walk);
-  };
-  walk(root);
+  index = new Map(flatten(root).map((o) => [o.address, o]));
   if (state.selected && !index.has(state.selected)) state.selected = undefined;
 
   treeTable.render(root);

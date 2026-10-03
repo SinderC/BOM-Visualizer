@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { resolve, type ConfigContext, type Occurrence } from './resolve';
+import { flatten, resolve, type ConfigContext } from './resolve';
 import { parseXml } from './xml';
 import sample from './samples/car.xml?raw';
 
 const doc = parseXml(sample);
 const ebom = doc.boms.find((b) => b.id === 'EBOM')!;
 
-function flatten(o: Occurrence): Occurrence[] {
-  return [o, ...o.children.flatMap(flatten)];
-}
 function statuses(ctx: ConfigContext): Record<string, string> {
   return Object.fromEntries(flatten(resolve(doc, ebom, ctx)).map((o) => [o.address, o.status]));
 }
