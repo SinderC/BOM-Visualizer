@@ -27,9 +27,13 @@ export interface OptionFamily {
   values: string[];
 }
 
+export const BOM_TYPES = ['EBOM', 'DBOM', 'MBOM', 'SBOM'] as const;
+export type BomType = (typeof BOM_TYPES)[number];
+
 export interface Bom {
   id: string;
   name: string;
+  type?: BomType; // absent in files written before types existed
   rootId: string;
   relations: Relation[];
 }
@@ -55,7 +59,7 @@ export function occurrencePath(bomId: string, relationIds: string[]): string {
 
 export function createDocument(): BomDocument {
   const doc: BomDocument = { items: new Map(), families: [], boms: [], alignments: [] };
-  addBom(doc, 'Main');
+  addBom(doc, 'Main', 'EBOM');
   return doc;
 }
 
@@ -135,9 +139,9 @@ export function removeRelation(bom: Bom, id: string): void {
   }
 }
 
-export function addBom(doc: BomDocument, name: string, rootId?: string): Bom {
+export function addBom(doc: BomDocument, name: string, type?: BomType, rootId?: string): Bom {
   const root = rootId ?? addItem(doc, `${name} root`).id;
-  const bom: Bom = { id: nextId('B', doc.boms.map((b) => b.id)), name, rootId: root, relations: [] };
+  const bom: Bom = { id: nextId('B', doc.boms.map((b) => b.id)), name, type, rootId: root, relations: [] };
   doc.boms.push(bom);
   return bom;
 }

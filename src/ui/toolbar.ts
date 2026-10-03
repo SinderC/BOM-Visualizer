@@ -1,6 +1,7 @@
 import { activeBom, h, type App } from '../app';
 import { addBom, createDocument } from '../model';
 import { parseXml, serializeXml } from '../xml';
+import { showNewBomDialog } from './bom-dialog';
 import { setThemePref, themePref, type ThemePref } from './theme';
 
 function button(label: string, title: string, onClick: () => void): HTMLButtonElement {
@@ -10,7 +11,7 @@ function button(label: string, title: string, onClick: () => void): HTMLButtonEl
 }
 
 /** Dropdown using the Popover API, which provides outside-click and Escape dismissal. */
-function menu(label: string, items: HTMLButtonElement[]): HTMLElement {
+function menu(label: string, items: HTMLElement[]): HTMLElement {
   const list = h('div', { className: 'menu-list', popover: 'auto' }, ...items);
   const trigger = h('button', { popoverTargetElement: list }, `${label} ▾`);
   list.addEventListener('beforetoggle', () => {
@@ -99,12 +100,12 @@ export function renderToolbar(container: HTMLElement, app: App): void {
     if (file) void openFile(app, file);
   });
 
-  const bomSelect = h(
-    'select',
-    { name: 'bom-select', title: 'Active BOM' },
-    ...state.doc.boms.map((b) => h('option', { value: b.id, selected: b.id === bom.id }, `${b.id}`)),
-  );
-  bomSelect.addEventListener('change', () => switchBom(app, bomSelect.value));
+  const bomItems = state.doc.boms.map((b) => {
+    const item = button('', `Switch to ${b.name || b.id}`, () => switchBom(app, b.id));
+    if (b.id === bom.id) item.classList.add('active');
+    item.append(h('span', {}, b.name || b.id), h('span', { className: 'muted' }, b.type ?? ''));
+    return item;
+  });
 
   const bomName = h('input', { name: 'bom-name', value: bom.name, title: 'BOM name' });
   bomName.addEventListener('change', () => app.commit(() => (bom.name = bomName.value.trim() || bom.name)));
@@ -121,10 +122,15 @@ export function renderToolbar(container: HTMLElement, app: App): void {
       ...(canWrite ? [button('Save As…', 'Save to a new file', () => void saveFile(app, true))] : []),
     ]),
     fileInput,
+    menu('BOM', [
+      ...bomItems,
+      h('hr'),
+      button('Create new BOM…', 'Add a BOM to this document', () =>
+        showNewBomDialog((name, type) => switchBom(app, addBom(state.doc, name, type).id)),
+      ),
+    ]),
     h('span', { className: 'sep' }),
-    h('label', { className: 'inline' }, 'BOM', bomSelect),
     bomName,
-    button('+ BOM', 'Add a BOM to this document', () => switchBom(app, addBom(state.doc, 'New BOM').id)),
     h('span', { className: 'muted file-name' }, state.fileName),
     h('label', { className: 'inline' }, 'Theme', themeSelect()),
   );

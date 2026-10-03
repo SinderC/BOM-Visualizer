@@ -26,7 +26,7 @@
     <item id="I21" name="Powertrain Line" description="Manufacturing station"/>
     <item id="I22" name="Final Assembly" description="Manufacturing station"/>
   </items>
-  <bom id="EBOM" name="Engineering BOM" root="I1">
+  <bom id="EBOM" name="Engineering BOM" type="EBOM" root="I1">
     <relations>
       <relation id="R1" parent="I1" child="I2" qty="1" findNo="10"/>
       <relation id="R2" parent="I1" child="I15" qty="1" findNo="20"/>
@@ -68,7 +68,7 @@
       </relation>
     </relations>
   </bom>
-  <bom id="MBOM" name="Manufacturing BOM" root="I1">
+  <bom id="MBOM" name="Manufacturing BOM" type="MBOM" root="I1">
     <relations>
       <relation id="R20" parent="I1" child="I20" qty="1" findNo="10"/>
       <relation id="R21" parent="I20" child="I2" qty="1" findNo="10"/>

@@ -6,6 +6,7 @@ describe('xml', () => {
   it('parses the sample with multiple BOMs and alignments', () => {
     const doc = parseXml(sample);
     expect(doc.boms.map((b) => b.id)).toEqual(['EBOM', 'MBOM']);
+    expect(doc.boms.map((b) => b.type)).toEqual(['EBOM', 'MBOM']);
     expect(doc.alignments).toEqual([
       { id: 'A1', source: 'EBOM:R3/R5', target: 'MBOM:R22/R23' },
       { id: 'A2', source: 'EBOM:R2/R10', target: 'MBOM:R26/R27' },
@@ -33,10 +34,15 @@ describe('xml', () => {
     expect(parseXml(xml).items.get('I2')!.name).toBe('Body');
   });
 
+  it('accepts a BOM without a type', () => {
+    expect(parseXml(sample.replace(' type="EBOM"', '')).boms[0].type).toBeUndefined();
+  });
+
   it('rejects bad input', () => {
     expect(() => parseXml('<nope')).toThrow(/well-formed/);
     expect(() => parseXml('<other/>')).toThrow(/bomDocument/);
     expect(() => parseXml(sample.replace('version="1"', 'version="2"'))).toThrow(/version 2/);
+    expect(() => parseXml(sample.replace('type="EBOM"', 'type="XBOM"'))).toThrow(/unknown type 'XBOM'/);
     expect(() => parseXml(sample.replace('id="R2"', 'id="R1"'))).toThrow(/Duplicate relation id R1/);
     expect(() => parseXml(sample.replace('child="I15"', 'child="I99"'))).toThrow(/I99 does not exist/);
     expect(() => parseXml(sample.replace('parent="I9" child="I12"', 'parent="I9" child="I1"'))).toThrow(/cycle/);

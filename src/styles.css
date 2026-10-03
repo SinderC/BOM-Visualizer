@@ -72,7 +72,21 @@ body {
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
 }
 .menu-list:popover-open { display: flex; flex-direction: column; }
-.menu-list button { border: 0; text-align: left; }
+.menu-list button { border: 0; text-align: left; display: flex; justify-content: space-between; gap: 16px; }
+.menu-list button.active { background: var(--accent-soft); }
+.menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+
+dialog {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 300px;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.3);
+}
+dialog::backdrop { background: rgb(0 0 0 / 0.35); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 
 main {
   display: grid;

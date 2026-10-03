@@ -1,4 +1,4 @@
-import { validateDocument, type Bom, type BomDocument, type Effectivity, type Relation } from './model';
+import { BOM_TYPES, validateDocument, type Bom, type BomType, type BomDocument, type Effectivity, type Relation } from './model';
 
 export const FORMAT_VERSION = 1;
 
@@ -24,7 +24,10 @@ export function parseXml(text: string): BomDocument {
     doc.items.set(id, { id, name: i.getAttribute('name') ?? '', description: i.getAttribute('description') ?? '' });
   }
   for (const b of kids(root, 'bom')) {
-    const bom: Bom = { id: req(b, 'id'), name: b.getAttribute('name') ?? '', rootId: req(b, 'root'), relations: [] };
+    const id = req(b, 'id');
+    const type = b.getAttribute('type') || undefined;
+    if (type && !BOM_TYPES.includes(type as BomType)) throw new Error(`BOM ${id}: unknown type '${type}'`);
+    const bom: Bom = { id, name: b.getAttribute('name') ?? '', type: type as BomType | undefined, rootId: req(b, 'root'), relations: [] };
     for (const r of path(b, 'relations', 'relation')) bom.relations.push(parseRelation(r));
     doc.boms.push(bom);
   }
@@ -95,7 +98,7 @@ export function serializeXml(doc: BomDocument): string {
   }
   out.push('  </items>');
   for (const b of doc.boms) {
-    out.push(`  <bom${attrs({ id: b.id, name: b.name, root: b.rootId })}>`, '    <relations>');
+    out.push(`  <bom${attrs({ id: b.id, name: b.name, type: b.type, root: b.rootId })}>`, '    <relations>');
     for (const r of b.relations) out.push(...serializeRelation(r));
     out.push('    </relations>', '  </bom>');
   }
