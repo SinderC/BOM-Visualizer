@@ -35,6 +35,7 @@
   --expr: #7a4dc9;
   --eff: #b0651a;
   --danger: #c93a3a;
+  --on-danger: #ffffff;
   --ok: #2e8b57;
   --excluded: 0.4;
   font: 13px/1.4 Geist, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -55,6 +56,7 @@
   --expr: #b89af0;
   --eff: #e0a060;
   --danger: #ff7272;
+  --on-danger: #14171c; /* white on the light red fails contrast */
   --ok: #5cc98a;
   --excluded: 0.42;
 }
@@ -258,7 +260,7 @@ body.no-doc #tree .placeholder { display: block; }
   white-space: pre-line;
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
 }
-#toast.error { background: var(--danger); color: #fff; }
+#toast.error { background: var(--danger); color: var(--on-danger); }
 
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; }
