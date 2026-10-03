@@ -1,8 +1,9 @@
-import { activeBom, h, openDoc, type App } from '../app';
+import { activeBom, openDoc, type App } from '../app';
 import { formatEff } from '../effectivity';
 import { validate } from '../expr';
 import { copyRelation, moveRelation, occurrencePath, parseQty, renameItem, updateItem, updateRelation } from '../model';
 import type { Occurrence } from '../resolve';
+import { h } from './dom';
 import { typeSelect } from './editor';
 import { COLUMNS, isColumnShown, isHideExcluded } from './view';
 

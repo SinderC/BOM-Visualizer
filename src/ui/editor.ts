@@ -1,4 +1,4 @@
-import { activeBom, h, openDoc, type App } from '../app';
+import { activeBom, openDoc, type App } from '../app';
 import { validate } from '../expr';
 import {
   addItem,
@@ -16,6 +16,7 @@ import {
 } from '../model';
 import type { Occurrence } from '../resolve';
 import { showNewItemTypeDialog } from './dialogs';
+import { button, field, h, input } from './dom';
 
 const STATUS_TEXT: Record<Occurrence['status'], string> = {
   included: 'Included',
@@ -24,16 +25,8 @@ const STATUS_TEXT: Record<Occurrence['status'], string> = {
   excludedByParent: 'Excluded (parent excluded)',
 };
 
-/** Input that commits on `change` (blur/enter), so typing never re-renders mid-edit. */
-function input(name: string, value: string | number | undefined, onCommit: (v: string) => void, type = 'text'): HTMLInputElement {
-  const el = h('input', { name, type, value: value?.toString() ?? '' });
-  el.addEventListener('change', () => onCommit(el.value.trim()));
-  return el;
-}
-
-const field = (label: string, control: HTMLElement) => h('label', {}, label, control);
 /** Codes and numbers in Geist Mono, matching the tree-table. */
-const mono = <T extends HTMLElement>(el: T): T => (el.classList.add('mono'), el);
+const MONO = { className: 'mono' };
 const NEW_TYPE = '\0new'; // select value of the "New type…" entry; cannot clash with a real type name
 
 /** Item type picker with a "New type…" entry that adds a type to the document via a dialog. */
@@ -81,7 +74,7 @@ function itemSection(app: App, occ: Occurrence): HTMLElement[] {
   const description = h('textarea', { name: 'item-desc', value: item.description, rows: 2 });
   description.addEventListener('change', () => app.commit(() => updateItem(doc, item.id, { description: description.value })));
 
-  const id = mono(input('item-id', item.id, (v) => app.tryCommit(() => renameItem(doc, item.id, v))));
+  const id = input('item-id', item.id, (v) => app.tryCommit(() => renameItem(doc, item.id, v)), MONO);
 
   const type = typeSelect(app, 'item-type', item.type, (t) => updateItem(doc, item.id, { type: t }));
 
@@ -114,8 +107,8 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
     h(
       'div',
       { className: 'row' },
-      field('Qty', mono(input('rel-qty', rel.qty, (v) => set({ qty: parseQty(v, rel.qty) }), 'number'))),
-      field('Find no.', mono(input('rel-find', rel.findNo, (v) => set({ findNo: v })))),
+      field('Qty', input('rel-qty', rel.qty, (v) => set({ qty: parseQty(v, rel.qty) }), { ...MONO, type: 'number' })),
+      field('Find no.', input('rel-find', rel.findNo, (v) => set({ findNo: v }), MONO)),
     ),
     field('Variant expression', expr),
     errors,
@@ -123,14 +116,17 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
     h(
       'div',
       { className: 'row' },
-      field('Date from', input('eff-df', rel.eff.dateFrom, (v) => setEff({ dateFrom: v || undefined }), 'date')),
-      field('Date to', input('eff-dt', rel.eff.dateTo, (v) => setEff({ dateTo: v || undefined }), 'date')),
+      field('Date from', input('eff-df', rel.eff.dateFrom, (v) => setEff({ dateFrom: v || undefined }), { type: 'date' })),
+      field('Date to', input('eff-dt', rel.eff.dateTo, (v) => setEff({ dateTo: v || undefined }), { type: 'date' })),
     ),
     h(
       'div',
       { className: 'row' },
-      field('Unit from', input('eff-uf', rel.eff.unitFrom, (v) => setEff({ unitFrom: parseUnit(v, rel.eff.unitFrom) }), 'number')),
-      field('Unit to', Object.assign(input('eff-ut', rel.eff.unitTo, (v) => setEff({ unitTo: parseUnit(v, rel.eff.unitTo) }), 'number'), { placeholder: 'UP' })),
+      field('Unit from', input('eff-uf', rel.eff.unitFrom, (v) => setEff({ unitFrom: parseUnit(v, rel.eff.unitFrom) }), { type: 'number' })),
+      field(
+        'Unit to',
+        input('eff-ut', rel.eff.unitTo, (v) => setEff({ unitTo: parseUnit(v, rel.eff.unitTo) }), { type: 'number', placeholder: 'UP' }),
+      ),
     ),
   ];
 }
@@ -151,27 +147,27 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
   const type = typeSelect(app, 'add-type', addChildType, (t) => (addChildType = t));
   type.title = 'Type of the new item; also sets its ID prefix';
   existing.addEventListener('change', () => (name.disabled = type.disabled = !!existing.value));
-  const add = h('button', {}, 'Add child');
-  add.addEventListener('click', () =>
-    app.tryCommit(() => {
-      const childId = existing.value || addItem(doc, name.value.trim() || 'New item', '', addChildType).id;
-      const rel = addRelation(doc, bom, occ.item.id, childId);
-      collapsed.delete(occ.address);
-      app.state.selected = occurrencePath(bom.id, [...occ.path, rel.id]);
-    }),
+  const add = button(
+    {},
+    () =>
+      app.tryCommit(() => {
+        const childId = existing.value || addItem(doc, name.value.trim() || 'New item', '', addChildType).id;
+        const rel = addRelation(doc, bom, occ.item.id, childId);
+        collapsed.delete(occ.address);
+        app.state.selected = occurrencePath(bom.id, [...occ.path, rel.id]);
+      }),
+    'Add child',
   );
 
   const out: HTMLElement[] = [h('h3', {}, 'Structure'), h('div', { className: 'row' }, existing), h('div', { className: 'row' }, name, type), add];
   if (occ.relation) {
     const relId = occ.relation.id;
-    const remove = h('button', { className: 'danger' }, 'Remove from parent');
-    remove.addEventListener('click', () =>
+    const remove = () =>
       app.commit(() => {
         removeRelation(bom, relId);
         app.state.selected = occurrencePath(bom.id, occ.path.slice(0, -1));
-      }),
-    );
-    out.push(remove);
+      });
+    out.push(button({ className: 'danger' }, remove, 'Remove from parent'));
   }
   return out;
 }

@@ -1,4 +1,4 @@
-import { h } from '../app';
+import { field, h } from './dom';
 import { BOM_TYPES, type BomType } from '../model';
 
 /** Modal form; `onSubmit` runs only when confirmed. */
@@ -26,7 +26,7 @@ const requiredText = () => h('input', { name: 'name', required: true, pattern: '
 export function showNewBomDialog(onCreate: (name: string, type: BomType) => void): void {
   const name = requiredText();
   const type = h('select', { name: 'type' }, ...BOM_TYPES.map((t) => h('option', { value: t }, t)));
-  showFormDialog('Create new BOM', 'Create', [h('label', {}, 'Name', name), h('label', {}, 'Type', type)], () =>
+  showFormDialog('Create new BOM', 'Create', [field('Name', name), field('Type', type)], () =>
     onCreate(name.value.trim(), type.value as BomType),
   );
 }
@@ -34,7 +34,7 @@ export function showNewBomDialog(onCreate: (name: string, type: BomType) => void
 /** Asks for the name of a new item type. */
 export function showNewItemTypeDialog(onCreate: (name: string) => void): void {
   const name = requiredText();
-  showFormDialog('Add item type', 'Add', [h('label', {}, 'Name', name)], () => onCreate(name.value));
+  showFormDialog('Add item type', 'Add', [field('Name', name)], () => onCreate(name.value));
 }
 
 /** Asks whether to save unsaved changes first. `onChoice` is not called on Cancel or Escape. */

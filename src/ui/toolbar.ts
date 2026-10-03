@@ -1,7 +1,8 @@
-import { activeBom, h, openDoc, resetView, type App } from '../app';
+import { activeBom, openDoc, resetView, type App } from '../app';
 import { addBom, createDocument } from '../model';
 import { parseXml, serializeXml } from '../xml';
 import { showNewBomDialog, showUnsavedChangesDialog } from './dialogs';
+import { button, h, input } from './dom';
 import { setThemePref, themePref, type ThemePref } from './theme';
 import {
   COLUMNS,
@@ -15,12 +16,6 @@ import {
   setPanelShown,
   type Panel,
 } from './view';
-
-function button(label: string, title: string, onClick: () => void): HTMLButtonElement {
-  const b = h('button', { title }, label);
-  b.addEventListener('click', onClick);
-  return b;
-}
 
 /**
  * Menu list using the Popover API, which provides outside-click and Escape dismissal. Clicking an entry closes the
@@ -68,10 +63,7 @@ function submenu(label: string, items: HTMLElement[]): HTMLElement {
 
 /** Entry with a check mark column on the left, as in native menus. */
 function checkItem(label: string, checked: boolean, title: string, onClick: () => void): HTMLButtonElement {
-  const item = button('', title, onClick);
-  item.classList.add('check-item');
-  item.append(h('span', { className: 'check' }, checked ? '✓' : ''), h('span', {}, label));
-  return item;
+  return button({ className: 'check-item', title }, onClick, h('span', { className: 'check' }, checked ? '✓' : ''), h('span', {}, label));
 }
 
 /** Check item that flips a view setting in place, keeping the menu open. */
@@ -179,13 +171,16 @@ export function renderToolbar(container: HTMLElement, app: App): void {
     if (file) void openFile(app, file);
   });
 
-  const save = button('Save', canWrite ? `Save ${state.fileName}` : `Download as ${state.fileName}`, () => void saveFile(app));
-  const saveAs = button('Save As…', 'Save to a new file', () => void saveFile(app, true));
-  const close = button('Close', 'Close the document', () =>
-    confirmUnsaved(app, () => {
-      fileHandle = undefined;
-      app.closeDocument();
-    }),
+  const save = button({ title: canWrite ? `Save ${state.fileName}` : `Download as ${state.fileName}` }, () => void saveFile(app), 'Save');
+  const saveAs = button({ title: 'Save to a new file' }, () => void saveFile(app, true), 'Save As…');
+  const close = button(
+    { title: 'Close the document' },
+    () =>
+      confirmUnsaved(app, () => {
+        fileHandle = undefined;
+        app.closeDocument();
+      }),
+    'Close',
   );
   save.disabled = saveAs.disabled = close.disabled = noDoc;
   const dirty = app.isDirty();
@@ -196,13 +191,16 @@ export function renderToolbar(container: HTMLElement, app: App): void {
   container.replaceChildren(
     h('strong', { className: 'brand' }, 'BOM Visualizer'),
     menu('File', [
-      button('New', 'Start an empty document', () =>
-        confirmUnsaved(app, () => {
-          fileHandle = undefined;
-          app.loadDocument(createDocument(), 'untitled.xml');
-        }),
+      button(
+        { title: 'Start an empty document' },
+        () =>
+          confirmUnsaved(app, () => {
+            fileHandle = undefined;
+            app.loadDocument(createDocument(), 'untitled.xml');
+          }),
+        'New',
       ),
-      button('Open…', 'Open a BOM XML file', () => confirmUnsaved(app, () => void pickAndOpen(app, fileInput))),
+      button({ title: 'Open a BOM XML file' }, () => confirmUnsaved(app, () => void pickAndOpen(app, fileInput)), 'Open…'),
       save,
       ...(canWrite ? [saveAs] : []),
       h('hr'),
@@ -224,33 +222,33 @@ export function renderToolbar(container: HTMLElement, app: App): void {
 function bomItems(app: App): HTMLElement[] {
   const bom = activeBom(app.state);
   const doc = openDoc(app.state);
-  const switchItems = doc.boms.map((b) => {
-    const item = button('', `Switch to ${b.name || b.id}`, () => switchBom(app, b.id));
-    if (b.id === bom.id) item.classList.add('active');
-    item.append(h('span', {}, b.name || b.id), h('span', { className: 'muted' }, b.type ?? ''));
-    return item;
-  });
+  const switchItems = doc.boms.map((b) =>
+    button(
+      { title: `Switch to ${b.name || b.id}`, className: b.id === bom.id ? 'active' : '' },
+      () => switchBom(app, b.id),
+      h('span', {}, b.name || b.id),
+      h('span', { className: 'muted' }, b.type ?? ''),
+    ),
+  );
   return [
     ...switchItems,
     h('hr'),
-    button('Create new BOM…', 'Add a BOM to this document', () =>
-      showNewBomDialog((name, type) => switchBom(app, addBom(doc, name, type).id)),
+    button(
+      { title: 'Add a BOM to this document' },
+      () => showNewBomDialog((name, type) => switchBom(app, addBom(doc, name, type).id)),
+      'Create new BOM…',
     ),
   ];
 }
 
 function bomNameInput(app: App): HTMLInputElement {
   const bom = activeBom(app.state);
-  const input = h('input', { name: 'bom-name', value: bom.name, title: 'BOM name' });
-  input.addEventListener('change', () => app.commit(() => (bom.name = input.value.trim() || bom.name)));
-  return input;
+  return input('bom-name', bom.name, (v) => app.commit(() => (bom.name = v || bom.name)), { title: 'BOM name' });
 }
 
 /** Menu entry with its keyboard shortcut right-aligned, as in native menus. */
 function shortcutItem(label: string, shortcut: string, title: string, onClick: () => void): HTMLButtonElement {
-  const item = button('', title, onClick);
-  item.append(h('span', {}, label), h('span', { className: 'muted' }, shortcut));
-  return item;
+  return button({ title }, onClick, h('span', {}, label), h('span', { className: 'muted' }, shortcut));
 }
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform);

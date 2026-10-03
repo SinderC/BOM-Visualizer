@@ -1,5 +1,6 @@
-import { h, openDoc, type App } from '../app';
+import { openDoc, type App } from '../app';
 import type { Occurrence } from '../resolve';
+import { field, h, input } from './dom';
 import { setApplyConfig } from './view';
 
 function count(o: Occurrence): { total: number; included: number } {
@@ -25,13 +26,15 @@ export function renderConfigPanel(container: HTMLElement, app: App, root: Occurr
       ...f.values.map((v) => h('option', { value: v, selected: ctx.options[f.name] === v }, v)),
     );
     select.addEventListener('change', () => app.commit(() => (ctx.options[f.name] = select.value || undefined)));
-    return h('label', {}, f.name, select);
+    return field(f.name, select);
   });
 
-  const date = h('input', { type: 'date', name: 'cfg-date', value: ctx.date ?? '' });
-  date.addEventListener('change', () => app.commit(() => (ctx.date = date.value || undefined)));
-  const unit = h('input', { type: 'number', name: 'cfg-unit', min: '1', step: '1', value: ctx.unit?.toString() ?? '' });
-  unit.addEventListener('change', () => app.commit(() => (ctx.unit = unit.value ? Number(unit.value) : undefined)));
+  const date = input('cfg-date', ctx.date, (v) => app.commit(() => (ctx.date = v || undefined)), { type: 'date' });
+  const unit = input('cfg-unit', ctx.unit, (v) => app.commit(() => (ctx.unit = v ? Number(v) : undefined)), {
+    type: 'number',
+    min: '1',
+    step: '1',
+  });
 
   // Two sections, each shown or hidden from the View menu.
   container.replaceChildren(
@@ -40,7 +43,7 @@ export function renderConfigPanel(container: HTMLElement, app: App, root: Occurr
       { className: 'config-section' },
       h('h2', {}, 'Configuration'),
       h('label', { className: 'check' }, enabled, 'Apply configuration'),
-      h('fieldset', { disabled: !ctx.enabled }, ...options, h('label', {}, 'Date', date), h('label', {}, 'Unit', unit)),
+      h('fieldset', { disabled: !ctx.enabled }, ...options, field('Date', date), field('Unit', unit)),
       h('p', { className: 'muted' }, ctx.enabled ? `${included} of ${total} occurrences included` : `${total} occurrences`),
     ),
     h('section', { className: 'families-section' }, h('h2', {}, 'Option families'), ...renderFamilies(app)),
