@@ -96,8 +96,12 @@ body {
 }
 #toolbar .brand { margin-right: 8px; }
 #toolbar .sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
-#toolbar .file-name { margin-left: auto; }
+#toolbar .file-name { margin-left: auto; font-size: inherit; }
 #toolbar input[name='bom-name'] { width: 180px; }
+/* Chevrons drawn with borders: the ▾ and ▸ glyphs are too small to read at the toolbar's font size. */
+#toolbar .menu-trigger { display: inline-flex; align-items: center; gap: 6px; }
+.caret { width: 5px; height: 5px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); }
+.caret.right { transform: translateX(-2px) rotate(-45deg); }
 #toolbar button.active { background: var(--accent-soft); }
 .menu-list {
   position: fixed;
@@ -116,7 +120,7 @@ body {
 .menu-list button.active { background: var(--accent-soft); }
 .menu-list button.check-item { justify-content: flex-start; gap: 6px; }
 .menu-list .check { width: 1em; text-align: center; }
-.menu-list .arrow { margin-left: auto; padding-left: 16px; }
+.menu-list .caret { margin-left: auto; align-self: center; flex-shrink: 0; }
 .menu-list .submenu { display: contents; } /* trigger stays a full-width entry */
 .submenu:has(> .menu-list:popover-open) > button { background: var(--accent-soft); }
 .menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }

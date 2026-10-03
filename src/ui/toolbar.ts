@@ -41,7 +41,7 @@ function menuList(trigger: HTMLElement, items: HTMLElement[], place: 'below' | '
 }
 
 function menu(label: string, items: HTMLElement[], disabled = false): HTMLElement {
-  const trigger = h('button', { disabled }, `${label} ▾`);
+  const trigger = h('button', { className: 'menu-trigger', disabled }, label, h('span', { className: 'caret' }));
   const list = menuList(trigger, items, 'below');
   trigger.popoverTargetElement = list;
   return h('span', {}, trigger, list);
@@ -57,7 +57,7 @@ function submenu(label: string, items: HTMLElement[]): HTMLElement {
     { className: 'check-item', dataset: { keepOpen: '' } },
     h('span', { className: 'check' }),
     h('span', {}, label),
-    h('span', { className: 'muted arrow' }, '▸'),
+    h('span', { className: 'muted caret right' }),
   );
   const list = menuList(trigger, items, 'right');
   const open = () => list.matches(':popover-open') || list.showPopover();
