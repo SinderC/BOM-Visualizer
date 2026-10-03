@@ -1,6 +1,6 @@
 import { activeBom, h, type App } from '../app';
 import { formatEff } from '../effectivity';
-import { moveRelation, occurrencePath } from '../model';
+import { copyRelation, moveRelation, occurrencePath } from '../model';
 import type { Occurrence } from '../resolve';
 
 const INDENT = 18;
@@ -30,34 +30,53 @@ export function createTreeTable(container: HTMLElement, app: App) {
     else select(address);
   });
 
-  // Drag a row onto another row to re-parent it there.
+  // Drag a row onto another row to make it a child there, or onto a row's top/bottom edge to place it before/after
+  // that row as a sibling. Holding Ctrl or Alt/Option when dropping copies the relation instead of moving it.
+  type Mode = 'into' | 'before' | 'after';
   let dragged: Occurrence | undefined;
   let dropRow: HTMLElement | undefined;
-  const setDropRow = (row: HTMLElement | undefined) => {
-    dropRow?.classList.remove('drop-target');
+  const setDropRow = (row: HTMLElement | undefined, mode?: Mode) => {
+    dropRow?.classList.remove('drop-into', 'drop-before', 'drop-after');
     dropRow = row;
-    row?.classList.add('drop-target');
+    row?.classList.add(`drop-${mode}`);
   };
-  /** Drop target under the pointer, if the dragged row may be moved onto it. Other cycles are caught by moveRelation. */
+  const isCopy = (e: DragEvent) => e.ctrlKey || e.altKey;
+
+  /** Where a drop at the pointer would place the dragged row, or undefined if not allowed. Other cycles are caught by the model. */
   const dropTargetAt = (e: DragEvent) => {
     const row = (e.target as HTMLElement).closest('tr');
     const target = app.occurrence(row?.dataset.address);
-    if (!row || !target || !dragged?.relation) return undefined;
-    const inOwnSubtree = target.address === dragged.address || target.address.startsWith(`${dragged.address}/`);
-    if (inOwnSubtree || target.item.id === dragged.relation.parentId) return undefined;
-    return { row, target };
+    const rel = dragged?.relation;
+    if (!row || !target || !dragged || !rel) return undefined;
+    const { top, height } = row.getBoundingClientRect();
+    const y = (e.clientY - top) / height;
+    const mode: Mode = !target.relation ? 'into' : y < 0.25 ? 'before' : y > 0.75 ? 'after' : 'into';
+    const copy = isCopy(e);
+
+    if (target.address.startsWith(`${dragged.address}/`)) return undefined;
+    if (target.address === dragged.address && (mode === 'into' || !copy)) return undefined;
+    if (mode === 'into' && !copy && target.item.id === rel.parentId) return undefined;
+
+    const parentPath = mode === 'into' ? target.path : target.path.slice(0, -1);
+    const parent = app.occurrence(occurrencePath(activeBom(app.state).id, parentPath))!;
+    const siblings = parent.children;
+    const beforeId =
+      mode === 'before' ? target.relation!.id : mode === 'after' ? siblings[siblings.indexOf(target) + 1]?.relation!.id : undefined;
+    return { row, mode, copy, parent, beforeId };
   };
 
   table.addEventListener('dragstart', (e) => {
     dragged = app.occurrence((e.target as HTMLElement).closest('tr')?.dataset.address);
     if (!dragged?.relation) return e.preventDefault();
-    e.dataTransfer!.effectAllowed = 'move';
+    e.dataTransfer!.effectAllowed = 'copyMove';
     e.dataTransfer!.setData('text/plain', dragged.address); // Firefox needs data to start a drag
   });
   table.addEventListener('dragover', (e) => {
     const hit = dropTargetAt(e);
-    setDropRow(hit?.row);
-    if (hit) e.preventDefault();
+    setDropRow(hit?.row, hit?.mode);
+    if (!hit) return;
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = hit.copy ? 'copy' : 'move';
   });
   table.addEventListener('dragleave', (e) => {
     if (!table.contains(e.relatedTarget as Node | null)) setDropRow(undefined);
@@ -68,15 +87,18 @@ export function createTreeTable(container: HTMLElement, app: App) {
   });
   table.addEventListener('drop', (e) => {
     const hit = dropTargetAt(e);
-    if (!hit || !dragged?.relation) return;
+    const relId = dragged?.relation?.id;
+    if (!hit || !relId) return;
     e.preventDefault();
-    const relId = dragged.relation.id;
-    const { target } = hit;
+    const { parent, beforeId, copy } = hit;
     try {
       app.commit(() => {
-        moveRelation(activeBom(app.state), relId, target.item.id);
-        app.state.collapsed.delete(target.address);
-        app.state.selected = occurrencePath(activeBom(app.state).id, [...target.path, relId]);
+        const bom = activeBom(app.state);
+        const rel = copy
+          ? copyRelation(app.state.doc, bom, relId, parent.item.id, beforeId)
+          : moveRelation(bom, relId, parent.item.id, beforeId);
+        app.state.collapsed.delete(parent.address);
+        app.state.selected = occurrencePath(bom.id, [...parent.path, rel.id]);
       });
     } catch (err) {
       app.toast((err as Error).message, true);

@@ -162,7 +162,9 @@ button.icon { padding: 4px 8px; flex: 0 0 auto; }
 .tree-table tbody tr { cursor: default; }
 .tree-table tbody tr:hover { background: color-mix(in srgb, var(--accent-soft) 50%, transparent); }
 .tree-table tr.selected { background: var(--accent-soft); }
-.tree-table tr.drop-target td { background: var(--accent-soft); box-shadow: inset 0 -2px var(--accent), inset 0 2px var(--accent); }
+.tree-table tr.drop-into td { background: var(--accent-soft); box-shadow: inset 0 -2px var(--accent), inset 0 2px var(--accent); }
+.tree-table tr.drop-before td { box-shadow: inset 0 2px var(--accent); }
+.tree-table tr.drop-after td { box-shadow: inset 0 -2px var(--accent); }
 .tree-table:focus tr.selected td:first-child { box-shadow: inset 2px 0 var(--accent); }
 .tree-table td.name { width: 40%; }
 .tree-table .twisty { display: inline-block; width: 16px; color: var(--muted); cursor: pointer; text-align: center; margin-right: 4px; font-size: 15px; line-height: 1; }

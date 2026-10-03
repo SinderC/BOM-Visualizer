@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addItem, addItemType, addRelation, createDocument, moveRelation, nextId, removeRelation, renameItem, validateDocument } from './model';
+import { addItem, addItemType, addRelation, copyRelation, createDocument, moveRelation, sortedChildren, nextId, removeRelation, renameItem, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -39,6 +39,34 @@ describe('model', () => {
     expect(rel).toMatchObject({ parentId: a.id, qty: 3, variantExpr: 'ENGINE=V8', findNo: '10' });
     expect(() => moveRelation(bom, rel.id, b.id)).toThrow(/cycle/);
     expect(rel.parentId).toBe(a.id);
+  });
+
+  it('places a moved relation between siblings by find number', () => {
+    const { doc, bom, a, b, root } = setup();
+    const c = addItem(doc, 'C');
+    const [ra, rb, rc] = [a, b, c].map((i) => addRelation(doc, bom, root, i.id)); // 10, 20, 30
+    moveRelation(bom, rc.id, root, rb.id);
+    expect(rc.findNo).toBe('15');
+    rb.findNo = '16';
+    moveRelation(bom, ra.id, root, rb.id); // no gap between 15 and 16: renumber
+    expect(sortedChildren(bom, root).map((r) => [r.id, r.findNo])).toEqual([
+      [rc.id, '10'],
+      [ra.id, '20'],
+      [rb.id, '30'],
+    ]);
+  });
+
+  it('copies a relation with its data under a new parent', () => {
+    const { doc, bom, a, b, root } = setup();
+    addRelation(doc, bom, root, a.id);
+    const rb = addRelation(doc, bom, root, b.id);
+    Object.assign(rb, { qty: 2, eff: { unitFrom: 5 } });
+    const copy = copyRelation(doc, bom, rb.id, a.id);
+    expect(copy).toMatchObject({ parentId: a.id, childId: b.id, qty: 2, eff: { unitFrom: 5 }, findNo: '10' });
+    expect(copy.id).not.toBe(rb.id);
+    expect(copy.eff).not.toBe(rb.eff);
+    expect(rb.parentId).toBe(root);
+    expect(() => copyRelation(doc, bom, copy.id, b.id)).toThrow(/cycle/);
   });
 
   it('rejects cycles', () => {

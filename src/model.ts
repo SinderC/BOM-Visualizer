@@ -91,6 +91,16 @@ export function childrenOf(bom: Bom, itemId: string): Relation[] {
   return bom.relations.filter((r) => r.parentId === itemId);
 }
 
+/** Natural order, so `9` < `10` < `10A`; ties keep file order. */
+export const byFindNo = (a: Relation, b: Relation) => a.findNo.localeCompare(b.findNo, undefined, { numeric: true });
+
+/** Children in display order (by find number). */
+export function sortedChildren(bom: Bom, itemId: string): Relation[] {
+  return childrenOf(bom, itemId).sort(byFindNo);
+}
+
+const newRelationId = (doc: BomDocument) => nextId('R', allRelations(doc).map((r) => r.id));
+
 /** Id prefix from the type's first letter, e.g. `P-` for Part; `I` for untyped items. */
 export function itemIdPrefix(type?: string): string {
   return type ? `${type[0].toUpperCase()}-` : 'I';
@@ -147,11 +157,28 @@ function nextFindNo(bom: Bom, parentId: string): string {
   return String(Math.max(0, ...childrenOf(bom, parentId).map((r) => Number(r.findNo) || 0)) + 10);
 }
 
+/**
+ * Find number that puts `rel` right before sibling `beforeId` under `parentId`, or last when `beforeId` is undefined.
+ * Uses the midpoint of the neighbours' numbers; renumbers all siblings in steps of 10 when there is no whole-number gap.
+ */
+function placeFindNo(bom: Bom, rel: Relation, parentId: string, beforeId?: string): string {
+  if (beforeId === undefined) return nextFindNo(bom, parentId);
+  const siblings = sortedChildren(bom, parentId).filter((r) => r !== rel);
+  const i = siblings.findIndex((r) => r.id === beforeId);
+  if (i < 0) throw new Error(`Relation ${beforeId} is not under ${parentId}`);
+  const prev = i ? Number(siblings[i - 1].findNo) : 0;
+  const next = Number(siblings[i].findNo);
+  if (Number.isInteger(prev) && Number.isInteger(next) && next - prev >= 2) return String(Math.floor((prev + next) / 2));
+  siblings.splice(i, 0, rel);
+  siblings.forEach((r, k) => (r.findNo = String((k + 1) * 10)));
+  return rel.findNo;
+}
+
 export function addRelation(doc: BomDocument, bom: Bom, parentId: string, childId: string): Relation {
   if (!doc.items.has(parentId) || !doc.items.has(childId)) throw new Error('Unknown item');
   assertNoCycle(bom, parentId, childId);
   const rel: Relation = {
-    id: nextId('R', allRelations(doc).map((r) => r.id)),
+    id: newRelationId(doc),
     parentId,
     childId,
     qty: 1,
@@ -168,14 +195,32 @@ export function updateRelation(bom: Bom, id: string, patch: Partial<Omit<Relatio
   if (rel) Object.assign(rel, patch);
 }
 
-/** Re-parents a relation, keeping its id, qty, variant and effectivity; the find number is renumbered under the new parent. */
-export function moveRelation(bom: Bom, id: string, newParentId: string): Relation {
+function getRelation(bom: Bom, id: string): Relation {
   const rel = bom.relations.find((r) => r.id === id);
   if (!rel) throw new Error(`Unknown relation ${id}`);
-  if (rel.parentId === newParentId) return rel;
-  assertNoCycle(bom, newParentId, rel.childId);
-  rel.findNo = nextFindNo(bom, newParentId);
-  rel.parentId = newParentId;
+  return rel;
+}
+
+/**
+ * Moves a relation under `parentId`, before sibling `beforeId` (or last). Keeps its id, qty, variant and effectivity;
+ * only the find number changes (see placeFindNo).
+ */
+export function moveRelation(bom: Bom, id: string, parentId: string, beforeId?: string): Relation {
+  const rel = getRelation(bom, id);
+  if (beforeId === id) return rel;
+  assertNoCycle(bom, parentId, rel.childId);
+  rel.findNo = placeFindNo(bom, rel, parentId, beforeId);
+  rel.parentId = parentId;
+  return rel;
+}
+
+/** Adds a copy of a relation (same child, qty, variant, effectivity) under `parentId`, before sibling `beforeId` (or last). */
+export function copyRelation(doc: BomDocument, bom: Bom, id: string, parentId: string, beforeId?: string): Relation {
+  const src = getRelation(bom, id);
+  assertNoCycle(bom, parentId, src.childId);
+  const rel: Relation = { ...src, eff: { ...src.eff }, id: newRelationId(doc), parentId };
+  rel.findNo = placeFindNo(bom, rel, parentId, beforeId);
+  bom.relations.push(rel);
   return rel;
 }
 
