@@ -1,4 +1,4 @@
-import { BOM_TYPES, DEFAULT_ITEM_TYPES, validateDocument, type Bom, type BomType, type BomDocument, type Effectivity, type Relation } from './model';
+import { BOM_TYPES, DEFAULT_ITEM_TYPES, isUnit, validateDocument, type Bom, type BomType, type BomDocument, type Effectivity, type Relation } from './model';
 
 const FORMAT_VERSION = 1;
 
@@ -75,7 +75,7 @@ function unit(el: Element, attr: string, relId: string): number | undefined {
   const raw = el.getAttribute(attr);
   if (!raw || raw.toUpperCase() === 'UP') return undefined;
   const n = Number(raw);
-  if (!Number.isInteger(n)) throw new Error(`Relation ${relId}: ${attr} must be an integer`);
+  if (!isUnit(n)) throw new Error(`Relation ${relId}: ${attr} must be a whole number of 1 or more`);
   return n;
 }
 

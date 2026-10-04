@@ -52,6 +52,7 @@ describe('xml', () => {
     expect(() => parseXml('<nope')).toThrow(/well-formed/);
     expect(() => parseXml('<other/>')).toThrow(/bomDocument/);
     expect(() => parseXml(sample.replace('qty="1" findNo="10"', 'qty="-1" findNo="10"'))).toThrow(/R1: invalid qty/);
+    expect(() => parseXml(sample.replace('unitFrom="100"', 'unitFrom="0"'))).toThrow(/unitFrom must be a whole number of 1 or more/);
     expect(() => parseXml(sample.replace('version="1"', 'version="2"'))).toThrow(/version 2/);
     expect(() => parseXml(sample.replace('type="EBOM"', 'type="XBOM"'))).toThrow(/unknown type 'XBOM'/);
     expect(() => parseXml(sample.replace('<type>Station</type>', ''))).toThrow(/unknown type 'Station'/);

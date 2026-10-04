@@ -234,11 +234,14 @@ export function parseQty(v: string, current: number): number {
   return v !== '' && Number.isFinite(n) && n >= 0 ? n : current;
 }
 
-/** Parses an edited effectivity unit; blank clears it (UP for unitTo), non-integer input keeps `current`. */
+/** Unit (serial) numbers start at 1. */
+export const isUnit = (n: number) => Number.isInteger(n) && n >= 1;
+
+/** Parses an edited effectivity unit; blank clears it (UP for unitTo), anything but a unit number keeps `current`. */
 export function parseUnit(v: string, current: number | undefined): number | undefined {
   if (v === '') return undefined;
   const n = Number(v);
-  return Number.isInteger(n) ? n : current;
+  return isUnit(n) ? n : current;
 }
 
 export function updateRelation(bom: Bom, id: string, patch: Partial<Omit<Relation, 'id'>>): void {

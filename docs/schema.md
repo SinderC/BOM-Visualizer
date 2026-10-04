@@ -38,7 +38,7 @@ One XML file holds one `<bomDocument>`: shared option families and items, one or
 | `bom` | `id`, `name`, `root` (item id). Holds its own relations. |
 | `relation` | Parent→child usage: `id`, `parent`, `child`, `qty`, `findNo`. **Relation ids are unique across the whole document.** |
 | `variant` | Optional boolean expression (see below). Missing/blank = always included. |
-| `effectivity` | Optional. Dates are ISO `yyyy-mm-dd`, units are integers; all bounds inclusive. Omitted bound = open; `unitTo` omitted (or `UP`) = up. |
+| `effectivity` | Optional. Dates are ISO `yyyy-mm-dd`, units are whole numbers of 1 or more; all bounds inclusive. Omitted bound = open; `unitTo` omitted (or `UP`) = up. |
 | `alignment` | Link between two occurrences (`source`, `target`). Stored and round-tripped; no UI yet. |
 
 Unknown elements and attributes are ignored on load. New features are added as optional elements/attributes so older files keep loading.

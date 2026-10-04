@@ -28,6 +28,7 @@ const STATUS_TEXT: Record<Status, string> = {
 
 /** Codes and numbers in Geist Mono, matching the tree-table. */
 const MONO = { className: 'mono' };
+const UNIT = { type: 'number', min: '1', step: '1' };
 const NEW_TYPE = '\0new'; // select value of the "New type…" entry; cannot clash with a real type name
 
 /** Item type picker with a "New type…" entry that adds a type to the document via a dialog. */
@@ -123,10 +124,10 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
     h(
       'div',
       { className: 'row' },
-      field('Unit from', input('eff-uf', rel.eff.unitFrom, (v) => setEff({ unitFrom: parseUnit(v, rel.eff.unitFrom) }), { type: 'number' })),
+      field('Unit from', input('eff-uf', rel.eff.unitFrom, (v) => setEff({ unitFrom: parseUnit(v, rel.eff.unitFrom) }), UNIT)),
       field(
         'Unit to',
-        input('eff-ut', rel.eff.unitTo, (v) => setEff({ unitTo: parseUnit(v, rel.eff.unitTo) }), { type: 'number', placeholder: 'UP' }),
+        input('eff-ut', rel.eff.unitTo, (v) => setEff({ unitTo: parseUnit(v, rel.eff.unitTo) }), { ...UNIT, placeholder: 'UP' }),
       ),
     ),
   ];
