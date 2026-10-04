@@ -85,7 +85,7 @@ export function showItemTypesDialog(app: App): void {
       const n = itemTypeUsage(doc, t);
       const name = input(`type-${i}-name`, t, (v) => update(() => renameItemType(doc, t, v)), { title: 'Type name' });
       const title = n ? `Used by ${n} items` : `Remove ${t}`;
-      const remove = button({ className: 'icon', title, disabled: n > 0 }, () => update(() => removeItemType(doc, t)), '✕');
+      const remove = button({ className: 'icon danger', title, disabled: n > 0 }, () => update(() => removeItemType(doc, t)), '✕');
       return h('div', { className: 'type-row' }, name, h('span', { className: 'muted' }, `${n} items`), remove);
     });
     const newName = h('input', { name: 'new-type', placeholder: 'New type' });
@@ -129,7 +129,7 @@ export function showVariantFamiliesDialog(app: App): void {
           removeFamily(doc, f.name);
           delete ctx.options[f.name];
         });
-      return h('div', { className: 'family-row' }, name, values, button({ className: 'icon', title: `Remove ${f.name}` }, remove, '✕'));
+      return h('div', { className: 'family-row' }, name, values, button({ className: 'icon danger', title: `Remove ${f.name}` }, remove, '✕'));
     });
     return [
       ...rows,

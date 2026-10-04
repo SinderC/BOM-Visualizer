@@ -186,7 +186,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 button { cursor: pointer; background: var(--panel); }
 button:hover:not(:disabled) { background: var(--accent-soft); }
 button:disabled { opacity: 0.45; cursor: default; }
-button.danger { color: var(--danger); margin-top: 8px; }
+button.danger { color: var(--danger); }
+#editor > button.danger { margin-top: 8px; } /* Remove from parent, below Add child */
 button.icon { padding: 4px 8px; flex: 0 0 auto; }
 
 .family-row { display: flex; gap: 6px; margin-bottom: 6px; }

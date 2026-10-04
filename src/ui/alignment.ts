@@ -128,7 +128,7 @@ export function renderAlignPanel(container: HTMLElement, app: App, leftRoot: Occ
   const listed = shown.filter((l) => selected.includes(l.left) || selected.includes(l.right));
   const list = listed.map(({ alignment, left, right }) => {
     const other = app.occurrence(selected.includes(left) ? right : left)!;
-    const remove = button({ className: 'icon', title: `Remove alignment ${alignment.id}` }, () => app.commit(() => removeAlignment(doc, alignment.id)), '✕');
+    const remove = button({ className: 'icon danger', title: `Remove alignment ${alignment.id}` }, () => app.commit(() => removeAlignment(doc, alignment.id)), '✕');
     return h('div', { className: 'align-row' }, h('div', {}, ...describe(other)), remove);
   });
 
