@@ -39,7 +39,7 @@ export interface Bom {
   relations: Relation[];
 }
 
-/** Link between two occurrences (see occurrencePath). Stored only; no UI yet. */
+/** Link between two occurrences in different BOMs (see occurrencePath). Removed when either occurrence disappears. */
 export interface Alignment {
   id: string;
   source: string;
@@ -60,6 +60,29 @@ export interface BomDocument {
 /** Stable occurrence address, e.g. `EBOM:R1/R5`. The root occurrence is `EBOM:`. */
 export function occurrencePath(bomId: string, relationIds: string[]): string {
   return `${bomId}:${relationIds.join('/')}`;
+}
+
+/** Address of the parent occurrence: `EBOM:R3/R5` → `EBOM:R3`, `EBOM:R3` → `EBOM:`. */
+export function parentAddress(address: string): string {
+  const colon = address.indexOf(':');
+  return address.slice(0, Math.max(address.lastIndexOf('/'), colon + 1));
+}
+
+const bomIdOf = (address: string) => address.slice(0, address.indexOf(':'));
+
+/** True if the address is an occurrence of the document: each relation in the path hangs under the previous child. */
+export function isOccurrence(doc: BomDocument, address: string): boolean {
+  const colon = address.indexOf(':');
+  const bom = colon > 0 ? findBom(doc, address.slice(0, colon)) : undefined;
+  if (!bom) return false;
+  const rest = address.slice(colon + 1);
+  let itemId = bom.rootId;
+  for (const relId of rest ? rest.split('/') : []) {
+    const rel = bom.relations.find((r) => r.id === relId && r.parentId === itemId);
+    if (!rel) return false;
+    itemId = rel.childId;
+  }
+  return true;
 }
 
 export function createDocument(): BomDocument {
@@ -276,14 +299,15 @@ function getRelation(bom: Bom, id: string): Relation {
 
 /**
  * Moves a relation under `parentId`, before sibling `beforeId` (or last). Keeps its id, qty, variant and effectivity;
- * only the find number changes (see placeFindNo).
+ * only the find number changes (see placeFindNo). Alignments of the moved subtree are removed, as its addresses change.
  */
-export function moveRelation(bom: Bom, id: string, parentId: string, beforeId?: string): Relation {
+export function moveRelation(doc: BomDocument, bom: Bom, id: string, parentId: string, beforeId?: string): Relation {
   const rel = getRelation(bom, id);
   if (beforeId === id) return rel;
   assertNoCycle(bom, parentId, rel.childId);
   rel.findNo = placeFindNo(bom, rel, parentId, beforeId);
   rel.parentId = parentId;
+  pruneAlignments(doc);
   return rel;
 }
 
@@ -297,15 +321,45 @@ export function copyRelation(doc: BomDocument, bom: Bom, id: string, parentId: s
   return rel;
 }
 
-/** Removes the relation, and the child's own relations if the child is no longer used in this BOM. */
-export function removeRelation(bom: Bom, id: string): void {
-  const rel = bom.relations.find((r) => r.id === id);
-  if (!rel) return;
-  bom.relations = bom.relations.filter((r) => r !== rel);
-  const stillUsed = rel.childId === bom.rootId || bom.relations.some((r) => r.childId === rel.childId);
-  if (!stillUsed) {
-    for (const child of childrenOf(bom, rel.childId)) removeRelation(bom, child.id);
-  }
+/**
+ * Removes the relation, and the child's own relations if the child is no longer used in this BOM. Alignments of the
+ * removed occurrences are removed too.
+ */
+export function removeRelation(doc: BomDocument, bom: Bom, id: string): void {
+  const remove = (id: string) => {
+    const rel = bom.relations.find((r) => r.id === id);
+    if (!rel) return;
+    bom.relations = bom.relations.filter((r) => r !== rel);
+    const stillUsed = rel.childId === bom.rootId || bom.relations.some((r) => r.childId === rel.childId);
+    if (!stillUsed) {
+      for (const child of childrenOf(bom, rel.childId)) remove(child.id);
+    }
+  };
+  remove(id);
+  pruneAlignments(doc);
+}
+
+/** Alignments with the occurrence at either end. */
+function alignmentsOf(doc: BomDocument, address: string): Alignment[] {
+  return doc.alignments.filter((a) => a.source === address || a.target === address);
+}
+
+export function addAlignment(doc: BomDocument, source: string, target: string): Alignment {
+  if (!isOccurrence(doc, source) || !isOccurrence(doc, target)) throw new Error('Both ends must be occurrences');
+  if (bomIdOf(source) === bomIdOf(target)) throw new Error('Both ends are in the same BOM');
+  if (alignmentsOf(doc, source).some((a) => a.source === target || a.target === target)) throw new Error('Already aligned');
+  const alignment = { id: nextId('A', doc.alignments.map((a) => a.id)), source, target };
+  doc.alignments.push(alignment);
+  return alignment;
+}
+
+export function removeAlignment(doc: BomDocument, id: string): void {
+  doc.alignments = doc.alignments.filter((a) => a.id !== id);
+}
+
+/** Drops alignments with an end that is no longer an occurrence, after a relation is removed or moved. */
+function pruneAlignments(doc: BomDocument): void {
+  doc.alignments = doc.alignments.filter((a) => isOccurrence(doc, a.source) && isOccurrence(doc, a.target));
 }
 
 export function addBom(doc: BomDocument, name: string, type?: BomType, rootId?: string): Bom {

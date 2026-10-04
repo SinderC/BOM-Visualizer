@@ -8,7 +8,8 @@ export interface State {
   fileName: string;
   ctx: ConfigContext;
   selected?: string; // occurrence address
-  collapsed: Set<string>; // occurrence addresses
+  collapsed: Set<string>; // occurrence addresses, of any BOM
+  align?: { bomId: string; selected?: string }; // alignment view: the right-hand BOM and its selection
 }
 
 /** Shared handle passed to UI modules. Mutate state inside `commit` to trigger a re-render. */
@@ -40,8 +41,9 @@ export function activeBom(state: State): Bom {
   return findBom(doc, state.bomId) ?? doc.boms[0];
 }
 
-/** Clears what is shown of the previous BOM or document: selection and collapsed rows. */
+/** Clears what is shown of the previous BOM or document: selection, collapsed rows and the alignment view. */
 export function resetView(state: State): void {
   state.selected = undefined;
   state.collapsed.clear();
+  state.align = undefined;
 }

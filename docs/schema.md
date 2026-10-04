@@ -39,7 +39,7 @@ One XML file holds one `<bomDocument>`: shared variant families and items, one o
 | `relation` | Parent→child usage: `id`, `parent`, `child`, `qty`, `findNo`. **Relation ids are unique across the whole document.** |
 | `variant` | Optional boolean expression (see below). Missing/blank = always included. |
 | `effectivity` | Optional. Dates are ISO `yyyy-mm-dd`, units are whole numbers of 1 or more; all bounds inclusive. Omitted bound = open; `unitTo` omitted (or `UP`) = up. |
-| `alignment` | Link between two occurrences (`source`, `target`). Stored and round-tripped; no UI yet. |
+| `alignment` | Link between two occurrences in different BOMs (`source`, `target`). Edited in the alignment view; the app removes it when a relation is removed or moved so that either address no longer exists. Alignments to missing occurrences are kept on load but not shown. |
 
 Unknown elements and attributes are ignored on load. New features are added as optional elements/attributes so older files keep loading.
 

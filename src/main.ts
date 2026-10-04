@@ -2,14 +2,16 @@ import './styles.css';
 import { activeBom, resetView, type App, type State } from './app';
 import { loadAutosave, writeAutosave, type Autosaved } from './autosave';
 import { createHistory } from './history';
+import { findBom } from './model';
 import { flatten, resolve, type Occurrence } from './resolve';
 import sample from './samples/car.xml?raw';
+import { createAlignmentView, renderAlignPanel } from './ui/alignment';
 import { renderConfigPanel } from './ui/config-panel';
 import { renderEditor } from './ui/editor';
 import { canWrite, renderToolbar } from './ui/toolbar';
 import { watchSystemTheme } from './ui/theme';
 import { applyView, isApplyConfig } from './ui/view';
-import { createTreeTable } from './ui/tree-table';
+import { createTreeTable, editPane } from './ui/tree-table';
 import { parseXml, serializeXml } from './xml';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -102,7 +104,8 @@ function autosave(): void {
   if (!error) saved = current;
 }
 
-const treeTable = createTreeTable($('tree'), app);
+const treeTable = createTreeTable($('tree'), app, editPane(app));
+const alignmentView = createAlignmentView($('tree'), app);
 
 function render(): void {
   renderQueued = false;
@@ -115,13 +118,26 @@ function render(): void {
     index = new Map();
     return;
   }
-  const root = resolve(state.doc, activeBom(state), state.ctx);
-  index = new Map(flatten(root).map((o) => [o.address, o]));
+  const bom = activeBom(state);
+  // The aligned BOM can vanish on undo of its creation.
+  const alignBom = state.align && state.align.bomId !== bom.id ? findBom(state.doc, state.align.bomId) : undefined;
+  if (!alignBom) state.align = undefined;
+  const root = resolve(state.doc, bom, state.ctx);
+  const alignRoot = alignBom && resolve(state.doc, alignBom, state.ctx);
+  // Addresses start with the BOM id, so one index serves both panes.
+  index = new Map([root, alignRoot].flatMap((r) => (r ? flatten(r) : [])).map((o) => [o.address, o]));
   if (state.selected && !index.has(state.selected)) state.selected = undefined;
+  if (state.align?.selected && !index.has(state.align.selected)) state.align.selected = undefined;
 
-  treeTable.render(root);
+  document.body.classList.toggle('aligning', !!alignRoot);
+  if (alignRoot) {
+    alignmentView.render(root, alignRoot);
+    renderAlignPanel($('editor'), app, root, alignRoot);
+  } else {
+    treeTable.render(root);
+    renderEditor($('editor'), app);
+  }
   renderConfigPanel($('config-panel'), app, root);
-  renderEditor($('editor'), app);
 
   if (focusedName) document.querySelector<HTMLElement>(`[name="${CSS.escape(focusedName)}"]`)?.focus();
 }

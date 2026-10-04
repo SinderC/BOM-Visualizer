@@ -8,6 +8,7 @@ Lightweight browser sandbox for trying out BOM concepts: multi-level structures,
 
 - Several BOMs per document (e.g. EBOM + MBOM) sharing items and variant families.
 - Items have an editable ID and a type from a per-document list (Part, Assembly, Station by default; add your own from the editor).
+- BOM alignment (BOM > Align with): the active BOM and another BOM side by side, read-only, with lines between aligned occurrences (dashed when an end is inside a collapsed row). Select a row on each side and click Align; remove from the side panel. Unaligned rows are marked and coverage is counted. Removing or moving a relation removes the alignments of the occurrences it affects.
 - Variant expressions on relations: `ENGINE=V8 AND (MARKET=EU OR TRIM IN (BASE, SPORT))`, with live validation.
 - Effectivity on relations: date range and unit range, open-ended bounds.
 - Configuration panel: pick option values, date and unit; excluded rows are dimmed and struck through (hover for the reason).
@@ -54,4 +55,4 @@ The workflow in `.github/workflows/deploy.yml` type-checks, tests, builds and de
 
 ## Roadmap
 
-See [docs/suggested-features.md](docs/suggested-features.md) — BOM alignment visualization is the next planned feature.
+See [docs/suggested-features.md](docs/suggested-features.md).

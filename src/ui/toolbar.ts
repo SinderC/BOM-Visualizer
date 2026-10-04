@@ -230,9 +230,18 @@ function bomItems(app: App): HTMLElement[] {
       h('span', { className: 'muted' }, b.type ?? ''),
     ),
   );
+  const others = doc.boms.filter((b) => b !== bom);
+  const alignItems = others.map((b) =>
+    checkItem(b.name || b.id, app.state.align?.bomId === b.id, `Show ${b.name || b.id} beside this BOM to align occurrences`, () =>
+      app.commit(() => (app.state.align = { bomId: b.id })),
+    ),
+  );
+  const exitAlign = button({ title: 'Back to editing this BOM' }, () => app.commit(() => (app.state.align = undefined)), 'Exit alignment view');
   return [
     ...switchItems,
     h('hr'),
+    ...(others.length ? [submenu('Align with', alignItems)] : []),
+    ...(app.state.align ? [exitAlign] : []),
     button(
       { title: 'Add a BOM to this document' },
       () => showNewBomDialog((name, type) => switchBom(app, addBom(doc, name, type).id)),

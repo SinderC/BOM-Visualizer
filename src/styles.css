@@ -150,8 +150,9 @@ main {
 #editor { grid-column: 3; }
 /* Panels hidden from the View menu, or with no document open. */
 :root[data-hide-config] main, body.no-doc main { --config-w: 0px; }
-:root[data-hide-editor] main, body.no-doc main { --editor-w: 0px; }
-:root[data-hide-config] #config-panel, :root[data-hide-editor] #editor { display: none; }
+:root[data-hide-editor] body:not(.aligning) main, body.no-doc main { --editor-w: 0px; }
+/* The alignment view always shows its panel, which holds the Align button. */
+:root[data-hide-config] #config-panel, :root[data-hide-editor] body:not(.aligning) #editor { display: none; }
 
 aside {
   background: var(--panel);
@@ -246,6 +247,21 @@ body.no-doc #tree .placeholder { display: block; }
 .tree-table .cell-edit { margin: -3px -5px; padding: 2px 4px; text-align: inherit; max-width: none; }
 .tree-table tr:not(.st-included) td { opacity: var(--excluded); }
 .tree-table tr:not(.st-included) td.name > span:nth-child(2) { text-decoration: line-through; }
+
+/* Alignment view: two read-only trees, each scrolling on its own, with link lines in the gutter between them. */
+.align-view { display: none; }
+body.aligning #tree { overflow: hidden; }
+body.aligning #tree > .tree-table { display: none; }
+body.aligning .align-view { display: grid; grid-template-columns: 1fr 80px 1fr; height: 100%; }
+.align-pane { overflow: auto; min-width: 0; }
+.align-links { width: 100%; height: 100%; border: solid var(--border); border-width: 0 1px; }
+.align-links path { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.align-links path.ancestor { stroke-dasharray: 4 3; }
+.align-links path.active { stroke: var(--accent); stroke-width: 2.5; }
+.tree-table tr.unaligned td:first-child { box-shadow: inset 3px 0 var(--eff); }
+.align-pick { margin-bottom: 8px; overflow-wrap: anywhere; }
+.align-pick h3 { margin-top: 0; }
+.align-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 
 #toast {
   position: fixed;

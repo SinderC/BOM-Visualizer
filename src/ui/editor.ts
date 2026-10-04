@@ -6,6 +6,7 @@ import {
   addRelation,
   DEFAULT_ITEM_TYPES,
   occurrencePath,
+  parentAddress,
   parseQty,
   parseUnit,
   removeRelation,
@@ -166,8 +167,8 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
     const relId = occ.relation.id;
     const remove = () =>
       app.commit(() => {
-        removeRelation(bom, relId);
-        app.state.selected = occurrencePath(bom.id, occ.path.slice(0, -1));
+        removeRelation(doc, bom, relId);
+        app.state.selected = parentAddress(occ.address);
       });
     out.push(button({ className: 'danger' }, remove, 'Remove from parent'));
   }

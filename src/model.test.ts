@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
+import { addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -48,9 +48,9 @@ describe('model', () => {
     addRelation(doc, bom, root, a.id);
     const rel = addRelation(doc, bom, root, b.id);
     Object.assign(rel, { qty: 3, variantExpr: 'ENGINE=V8' });
-    moveRelation(bom, rel.id, a.id);
+    moveRelation(doc, bom, rel.id, a.id);
     expect(rel).toMatchObject({ parentId: a.id, qty: 3, variantExpr: 'ENGINE=V8', findNo: '10' });
-    expect(() => moveRelation(bom, rel.id, b.id)).toThrow(/cycle/);
+    expect(() => moveRelation(doc, bom, rel.id, b.id)).toThrow(/cycle/);
     expect(rel.parentId).toBe(a.id);
   });
 
@@ -58,10 +58,10 @@ describe('model', () => {
     const { doc, bom, a, b, root } = setup();
     const c = addItem(doc, 'C');
     const [ra, rb, rc] = [a, b, c].map((i) => addRelation(doc, bom, root, i.id)); // 10, 20, 30
-    moveRelation(bom, rc.id, root, rb.id);
+    moveRelation(doc, bom, rc.id, root, rb.id);
     expect(rc.findNo).toBe('15');
     rb.findNo = '16';
-    moveRelation(bom, ra.id, root, rb.id); // no gap between 15 and 16: renumber
+    moveRelation(doc, bom, ra.id, root, rb.id); // no gap between 15 and 16: renumber
     expect(sortedChildren(bom, root).map((r) => [r.id, r.findNo])).toEqual([
       [rc.id, '10'],
       [ra.id, '20'],
@@ -96,9 +96,9 @@ describe('model', () => {
     const r1 = addRelation(doc, bom, root, a.id);
     const r2 = addRelation(doc, bom, root, a.id);
     addRelation(doc, bom, a.id, b.id);
-    removeRelation(bom, r1.id);
+    removeRelation(doc, bom, r1.id);
     expect(bom.relations).toHaveLength(2);
-    removeRelation(bom, r2.id);
+    removeRelation(doc, bom, r2.id);
     expect(bom.relations).toHaveLength(0);
   });
 
@@ -170,5 +170,65 @@ describe('model', () => {
     expect(doc.families[0].values).toEqual(['A', 'B']);
     removeFamily(doc, 'FAMILY2');
     expect(doc.families.map((f) => f.name)).toEqual(['FAMILY3']);
+  });
+});
+
+/** EBOM: root → A (R1) → B (R2); MBOM: root → B (R3). A1 links the two B occurrences. */
+function alignedSetup() {
+  const { doc, bom, a, b, root } = setup();
+  const r1 = addRelation(doc, bom, root, a.id);
+  const r2 = addRelation(doc, bom, a.id, b.id);
+  const mbom = addBom(doc, 'M', 'MBOM', root);
+  const r3 = addRelation(doc, mbom, root, b.id);
+  const ebomB = `${bom.id}:${r1.id}/${r2.id}`;
+  const mbomB = `${mbom.id}:${r3.id}`;
+  addAlignment(doc, ebomB, mbomB);
+  return { doc, bom, mbom, a, b, root, r1, r2, r3, ebomB, mbomB };
+}
+
+describe('alignments', () => {
+  it('parentAddress drops the last relation id', () => {
+    expect(parentAddress('EBOM:R3/R5')).toBe('EBOM:R3');
+    expect(parentAddress('EBOM:R3')).toBe('EBOM:');
+    expect(parentAddress('EBOM:')).toBe('EBOM:');
+  });
+
+  it('isOccurrence follows the relation chain from the root', () => {
+    const { doc, bom, r1, r2, r3, ebomB } = alignedSetup();
+    expect(isOccurrence(doc, ebomB)).toBe(true);
+    expect(isOccurrence(doc, `${bom.id}:`)).toBe(true);
+    expect(isOccurrence(doc, `${bom.id}:${r2.id}`)).toBe(false); // R2 is not under the root
+    expect(isOccurrence(doc, `${bom.id}:${r3.id}`)).toBe(false); // R3 is in the other BOM
+    expect(isOccurrence(doc, `NOPE:${r1.id}`)).toBe(false);
+    expect(isOccurrence(doc, `${bom.id}:R99`)).toBe(false);
+  });
+
+  it('adds and removes alignments, rejecting duplicates, same-BOM pairs and non-occurrences', () => {
+    const { doc, bom, r1, ebomB, mbomB } = alignedSetup();
+    expect(doc.alignments).toEqual([{ id: 'A1', source: ebomB, target: mbomB }]);
+    expect(() => addAlignment(doc, ebomB, mbomB)).toThrow(/Already aligned/);
+    expect(() => addAlignment(doc, mbomB, ebomB)).toThrow(/Already aligned/);
+    expect(() => addAlignment(doc, ebomB, `${bom.id}:${r1.id}`)).toThrow(/same BOM/);
+    expect(() => addAlignment(doc, ebomB, `${bom.id}:R99`)).toThrow(/occurrences/);
+    expect(addAlignment(doc, `${bom.id}:${r1.id}`, mbomB).id).toBe('A2');
+    removeAlignment(doc, 'A1');
+    expect(doc.alignments.map((a) => a.id)).toEqual(['A2']);
+  });
+
+  it('removing a relation removes alignments in its subtree and keeps the others', () => {
+    const { doc, bom, mbom, a, root, r1, r3 } = alignedSetup();
+    const ra = addRelation(doc, mbom, root, a.id);
+    addAlignment(doc, `${bom.id}:${r1.id}`, `${mbom.id}:${ra.id}`);
+    removeRelation(doc, mbom, r3.id);
+    expect(doc.alignments.map((x) => x.id)).toEqual(['A2']);
+    // Removing R1 orphans A, so its own relation R2 goes too; A2 ends at R1.
+    removeRelation(doc, bom, r1.id);
+    expect(doc.alignments).toEqual([]);
+  });
+
+  it('moving a relation removes the alignments of its subtree', () => {
+    const { doc, bom, root, r2 } = alignedSetup();
+    moveRelation(doc, bom, r2.id, root);
+    expect(doc.alignments).toEqual([]);
   });
 });
