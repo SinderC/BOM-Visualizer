@@ -1,7 +1,7 @@
 import { activeBom, openDoc, resetView, type App } from '../app';
 import { addBom, createDocument } from '../model';
 import { parseXml, serializeXml } from '../xml';
-import { showNewBomDialog, showUnsavedChangesDialog } from './dialogs';
+import { showItemTypesDialog, showNewBomDialog, showVariantFamiliesDialog, showUnsavedChangesDialog } from './dialogs';
 import { button, h, input } from './dom';
 import { setThemePref, themePref, type ThemePref } from './theme';
 import {
@@ -253,13 +253,16 @@ function shortcutItem(label: string, shortcut: string, title: string, onClick: (
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 
-function editItems(app: App): HTMLButtonElement[] {
+function editItems(app: App): HTMLElement[] {
   const { history } = app;
   const undo = shortcutItem('Undo', isMac ? '⌘Z' : 'Ctrl+Z', 'Undo the last change', () => app.commit(history.undo));
   const redo = shortcutItem('Redo', isMac ? '⇧⌘Z' : 'Ctrl+Y', 'Redo the last undone change', () => app.commit(history.redo));
   undo.disabled = !history.canUndo;
   redo.disabled = !history.canRedo;
-  return [undo, redo];
+  const types = button({ title: 'Add, rename and remove item types' }, () => showItemTypesDialog(app), 'Item types…');
+  const families = button({ title: 'Add, rename and remove variant families and their values' }, () => showVariantFamiliesDialog(app), 'Variant families…');
+  types.disabled = families.disabled = !app.state.doc;
+  return [undo, redo, h('hr'), types, families];
 }
 
 function viewItems(app: App): HTMLElement[] {
@@ -280,7 +283,6 @@ function viewItems(app: App): HTMLElement[] {
     ),
     h('hr'),
     panel('config', 'Configuration', 'Show or hide the configuration panel'),
-    panel('families', 'Option families', 'Show or hide the option families panel'),
     panel('editor', 'Editor', 'Show or hide the editor panel'),
   ];
 }

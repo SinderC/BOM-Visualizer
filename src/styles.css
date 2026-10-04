@@ -149,11 +149,9 @@ main {
 #tree { grid-column: 2; }
 #editor { grid-column: 3; }
 /* Panels hidden from the View menu, or with no document open. */
-/* The left panel holds Configuration and Option families, and is hidden when both are. */
-:root[data-hide-config][data-hide-families] main, body.no-doc main { --config-w: 0px; }
+:root[data-hide-config] main, body.no-doc main { --config-w: 0px; }
 :root[data-hide-editor] main, body.no-doc main { --editor-w: 0px; }
-:root[data-hide-config][data-hide-families] #config-panel, :root[data-hide-editor] #editor { display: none; }
-:root[data-hide-config] .config-section, :root[data-hide-families] .families-section { display: none; }
+:root[data-hide-config] #config-panel, :root[data-hide-editor] #editor { display: none; }
 
 aside {
   background: var(--panel);
@@ -161,7 +159,6 @@ aside {
   overflow-y: auto;
 }
 #config-panel { border-right: 1px solid var(--border); }
-:root:not([data-hide-config]) .families-section { border-top: 1px solid var(--border); margin: 16px -14px 0; padding: 12px 14px 0; }
 #editor { border-left: 1px solid var(--border); }
 
 h2 { font-size: 14px; margin: 0 0 8px; }
@@ -194,6 +191,9 @@ button.icon { padding: 4px 8px; flex: 0 0 auto; }
 .family-row { display: flex; gap: 6px; margin-bottom: 6px; }
 .family-row input:first-child { width: 90px; flex: 0 0 auto; }
 .family-row input:nth-child(2) { flex: 1; min-width: 0; }
+.type-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.type-row input { flex: 1; min-width: 0; }
+.type-row .muted { width: 56px; text-align: right; }
 
 .errors { color: var(--danger); margin: -4px 0 6px; padding-left: 18px; font-size: 12px; }
 .errors:empty { display: none; }

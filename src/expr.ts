@@ -144,7 +144,7 @@ class Parser {
       this.expectOp(')');
       return expr;
     }
-    const family = this.name('option family');
+    const family = this.name('variant family');
     if (this.isOp('=') || this.isOp('!=')) {
       const negate = this.isOp('!=');
       this.i++;
@@ -181,7 +181,7 @@ export function parse(src: string): { ast: Expr | null; errors: ExprError[] } {
   }
 }
 
-/** Syntax errors plus references to unknown option families or values. */
+/** Syntax errors plus references to unknown variant families or values. */
 export function validate(src: string, families: OptionFamily[]): ExprError[] {
   const { ast, errors } = parse(src);
   if (!ast) return errors;
@@ -198,7 +198,7 @@ export function validate(src: string, families: OptionFamily[]): ExprError[] {
       case 'cmp': {
         const fam = families.find((f) => f.name === e.family.name);
         if (!fam) {
-          out.push({ message: `Unknown option family '${e.family.name}'`, pos: e.family.pos });
+          out.push({ message: `Unknown variant family '${e.family.name}'`, pos: e.family.pos });
           break;
         }
         for (const v of e.values) {

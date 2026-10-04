@@ -1,7 +1,6 @@
 import { openDoc, type App } from '../app';
-import { addFamily, removeFamily, renameFamily, setFamilyValues } from '../model';
 import { flatten, type Occurrence } from '../resolve';
-import { button, field, h, input } from './dom';
+import { field, h, input } from './dom';
 import { setApplyConfig } from './view';
 
 export function renderConfigPanel(container: HTMLElement, app: App, root: Occurrence): void {
@@ -32,58 +31,10 @@ export function renderConfigPanel(container: HTMLElement, app: App, root: Occurr
     step: '1',
   });
 
-  // Two sections, each shown or hidden from the View menu.
   container.replaceChildren(
-    h(
-      'section',
-      { className: 'config-section' },
-      h('h2', {}, 'Configuration'),
-      h('label', { className: 'check' }, enabled, 'Apply configuration'),
-      h('fieldset', { disabled: !ctx.enabled }, ...options, field('Date', date), field('Unit', unit)),
-      h('p', { className: 'muted' }, ctx.enabled ? `${included} of ${total} occurrences included` : `${total} occurrences`),
-    ),
-    h('section', { className: 'families-section' }, h('h2', {}, 'Option families'), ...renderFamilies(app)),
+    h('h2', {}, 'Configuration'),
+    h('label', { className: 'check' }, enabled, 'Apply configuration'),
+    h('fieldset', { disabled: !ctx.enabled }, ...options, field('Date', date), field('Unit', unit)),
+    h('p', { className: 'muted' }, ctx.enabled ? `${included} of ${total} occurrences included` : `${total} occurrences`),
   );
-}
-
-function renderFamilies(app: App): HTMLElement[] {
-  const doc = openDoc(app.state);
-  const { ctx } = app.state;
-  const rows = doc.families.map((f, i) => {
-    const name = input(
-      `fam-${i}-name`,
-      f.name,
-      (v) =>
-        app.tryCommit(() => {
-          const oldName = f.name;
-          renameFamily(doc, oldName, v);
-          ctx.options[v] = ctx.options[oldName];
-          if (v !== oldName) delete ctx.options[oldName];
-        }),
-      { className: 'mono', title: 'Family name' },
-    );
-    const values = input(
-      `fam-${i}-values`,
-      f.values.join(', '),
-      (v) =>
-        app.commit(() => {
-          setFamilyValues(doc, f.name, v.split(','));
-          if (!f.values.includes(ctx.options[f.name] ?? '')) delete ctx.options[f.name];
-        }),
-      { className: 'mono', title: 'Comma-separated values' },
-    );
-    const remove = () =>
-      app.commit(() => {
-        removeFamily(doc, f.name);
-        delete ctx.options[f.name];
-      });
-    return h('div', { className: 'family-row' }, name, values, button({ className: 'icon', title: `Remove ${f.name}` }, remove, '✕'));
-  });
-
-  const add = button({}, () => app.commit(() => addFamily(doc)), '+ Add family');
-  return [
-    ...rows,
-    add,
-    h('p', { className: 'muted' }, 'Renaming a family does not rewrite existing expressions; they will show as invalid.'),
-  ];
 }

@@ -47,7 +47,7 @@ export interface Alignment {
 }
 
 /** Starting list for new documents and for files written before item types existed. */
-export const DEFAULT_ITEM_TYPES = ['Part', 'Assembly', 'Station'];
+export const DEFAULT_ITEM_TYPES = ['Part Revision', 'Design Revision'];
 
 export interface BomDocument {
   itemTypes: string[];
@@ -147,9 +147,28 @@ export function addItemType(doc: BomDocument, name: string): string {
   return type;
 }
 
+/** Number of items of the given type. */
+export function itemTypeUsage(doc: BomDocument, type: string): number {
+  return [...doc.items.values()].filter((i) => i.type === type).length;
+}
+
+/** Renames a type in place and on every item of that type. Item ids keep their old prefix. */
+export function renameItemType(doc: BomDocument, oldName: string, newName: string): void {
+  const type = newName.trim();
+  if (!type || (type !== oldName && doc.itemTypes.includes(type))) throw new Error(`Type name '${type}' is empty or already used`);
+  doc.itemTypes[doc.itemTypes.indexOf(oldName)] = type;
+  for (const item of doc.items.values()) if (item.type === oldName) item.type = type;
+}
+
+export function removeItemType(doc: BomDocument, name: string): void {
+  const n = itemTypeUsage(doc, name);
+  if (n) throw new Error(`Type ${name} is used by ${n} items`);
+  doc.itemTypes = doc.itemTypes.filter((t) => t !== name);
+}
+
 function getFamily(doc: BomDocument, name: string): OptionFamily {
   const family = doc.families.find((f) => f.name === name);
-  if (!family) throw new Error(`Unknown option family ${name}`);
+  if (!family) throw new Error(`Unknown variant family ${name}`);
   return family;
 }
 

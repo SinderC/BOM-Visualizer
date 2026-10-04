@@ -1,6 +1,6 @@
 # BOM document format (version 1)
 
-One XML file holds one `<bomDocument>`: shared option families and items, one or more BOMs, and alignments between BOM occurrences.
+One XML file holds one `<bomDocument>`: shared variant families and items, one or more BOMs, and alignments between BOM occurrences.
 
 ```xml
 <bomDocument version="1">
@@ -33,7 +33,7 @@ One XML file holds one `<bomDocument>`: shared option families and items, one or
 |---|---|
 | `bomDocument@version` | Format version. Readers reject versions newer than they support. |
 | `family` | `name` + ordered `<value>` list. Shared by all BOMs. |
-| `itemTypes` | Ordered list of allowed item `<type>` names. Optional; if absent, the defaults `Part`, `Assembly`, `Station` apply. |
+| `itemTypes` | Ordered list of allowed item `<type>` names. Optional; if absent, the defaults `Part Revision`, `Design Revision` apply. |
 | `item` | Part identity (`id`, `type`, `name`, `description`). `type` is optional and must be listed in `itemTypes`. Shared by all BOMs; may be used under many parents. |
 | `bom` | `id`, `name`, `root` (item id). Holds its own relations. |
 | `relation` | Parent→child usage: `id`, `parent`, `child`, `qty`, `findNo`. **Relation ids are unique across the whole document.** |

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addFamily, addItem, addItemType, addRelation, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
+import { addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -144,7 +144,22 @@ describe('model', () => {
     expect(validateDocument(doc)).toContain(`Item ${a.id}: unknown type 'Nope'`);
   });
 
-  it('adds, renames, sets values of and removes option families', () => {
+  it('renames item types on items and removes only unused ones', () => {
+    const { doc, a } = setup();
+    expect(doc.itemTypes).toEqual(['Part Revision', 'Design Revision']);
+    a.type = 'Part Revision';
+    expect(itemTypeUsage(doc, 'Part Revision')).toBe(1);
+    renameItemType(doc, 'Part Revision', ' Component ');
+    expect(doc.itemTypes[0]).toBe('Component');
+    expect(a.type).toBe('Component');
+    expect(() => renameItemType(doc, 'Component', '')).toThrow(/empty or already used/);
+    expect(() => renameItemType(doc, 'Component', 'Design Revision')).toThrow(/empty or already used/);
+    expect(() => removeItemType(doc, 'Component')).toThrow(/used by 1 items/);
+    removeItemType(doc, 'Design Revision');
+    expect(doc.itemTypes).toEqual(['Component']);
+  });
+
+  it('adds, renames, sets values of and removes variant families', () => {
     const doc = createDocument();
     expect(addFamily(doc).name).toBe('FAMILY1');
     renameFamily(doc, 'FAMILY1', 'FAMILY2');

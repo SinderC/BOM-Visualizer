@@ -129,7 +129,8 @@ function render(): void {
 // Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z and Ctrl+Y; text fields keep their own undo.
 document.addEventListener('keydown', (e) => {
   if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
-  if ((e.target as HTMLElement).closest('input, textarea')) return;
+  // In a dialog, undo would change the document behind it and leave the dialog showing old data.
+  if ((e.target as HTMLElement).closest('input, textarea, dialog')) return;
   const key = e.key.toLowerCase();
   const redo = (key === 'z' && e.shiftKey) || (key === 'y' && !e.shiftKey);
   if (key !== 'z' && !redo) return;

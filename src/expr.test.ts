@@ -46,7 +46,7 @@ describe('expr', () => {
     expect(validate('ENGINE=V8 AND MARKET IN (EU, JP)', families)).toEqual([
       { message: "'JP' is not a value of MARKET", pos: 29 },
     ]);
-    expect(validate('COLOR=RED', families)).toEqual([{ message: "Unknown option family 'COLOR'", pos: 0 }]);
+    expect(validate('COLOR=RED', families)).toEqual([{ message: "Unknown variant family 'COLOR'", pos: 0 }]);
     expect(validate('ENGINE=V8', families)).toEqual([]);
   });
 });
