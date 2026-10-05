@@ -16,9 +16,9 @@ import {
 import { button, field, h, input } from './dom';
 
 /** Modal form; `onSubmit` runs only when confirmed. Without a field to type in, Enter confirms. */
-function showFormDialog(title: string, submitLabel: string, fields: HTMLElement[], onSubmit: () => void): void {
+function showFormDialog(title: string, submitLabel: string, fields: HTMLElement[], onSubmit: () => void, submitClass = ''): void {
   const cancel = h('button', { type: 'button' }, 'Cancel');
-  const submit = h('button', {}, submitLabel);
+  const submit = h('button', { className: submitClass }, submitLabel);
   const form = h('form', { method: 'dialog' }, h('h2', {}, title), ...fields, h('div', { className: 'dialog-actions' }, cancel, submit));
   const dialog = h('dialog', {}, form);
 
@@ -30,9 +30,9 @@ function showFormDialog(title: string, submitLabel: string, fields: HTMLElement[
   if (document.activeElement === cancel) submit.focus();
 }
 
-/** Asks to confirm an action; Enter confirms, Escape cancels. */
+/** Asks to confirm a destructive action, with the confirm button in the danger color; Enter confirms, Escape cancels. */
 export function showConfirmDialog(title: string, message: string, confirmLabel: string, onConfirm: () => void): void {
-  showFormDialog(title, confirmLabel, [h('p', {}, message)], onConfirm);
+  showFormDialog(title, confirmLabel, [h('p', {}, message)], onConfirm, 'danger');
 }
 
 const requiredText = () => h('input', { name: 'name', required: true, pattern: '.*\\S.*' });
