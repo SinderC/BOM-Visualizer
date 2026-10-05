@@ -37,4 +37,40 @@ export function input(
   return el;
 }
 
+/** Rejects impossible dates such as 2026-02-30, which Date rolls over into March. */
+const isIsoDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v)) && new Date(v).toISOString().startsWith(v);
+
+const CALENDAR_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" stroke-width="1.4"/></svg>';
+
+/**
+ * Date field that shows and takes yyyy-mm-dd in every browser: native date inputs use the browser's display language
+ * (MM/DD/YYYY for US English). The button opens the browser's own calendar from a hidden date input. Commits '' or a
+ * valid date; anything else is outlined and not committed.
+ */
+export function dateField(name: string, value: string | undefined, onCommit: (v: string) => void): HTMLElement {
+  const text = input(
+    name,
+    value,
+    (v) => {
+      const valid = !v || isIsoDate(v);
+      text.setCustomValidity(valid ? '' : 'Use yyyy-mm-dd');
+      if (valid) onCommit(v);
+    },
+    { placeholder: 'yyyy-mm-dd', className: 'mono', spellcheck: false },
+  );
+  const picker = h('input', { type: 'date', className: 'date-picker', tabIndex: -1 });
+  picker.setAttribute('aria-hidden', 'true');
+  picker.addEventListener('change', () => {
+    text.value = picker.value;
+    text.dispatchEvent(new Event('change'));
+  });
+  const open = button({ type: 'button', className: 'icon', title: 'Pick a date' }, () => {
+    picker.value = isIsoDate(text.value) ? text.value : '';
+    picker.showPicker();
+  });
+  open.innerHTML = CALENDAR_ICON;
+  return h('div', { className: 'date-input' }, text, open, picker);
+}
+
 export const field = (label: string, control: HTMLElement) => h('label', {}, label, control);

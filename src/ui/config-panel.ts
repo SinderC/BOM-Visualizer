@@ -1,6 +1,6 @@
 import { openDoc, type App } from '../app';
 import { flatten, type Occurrence } from '../resolve';
-import { button, field, h, input } from './dom';
+import { button, dateField, field, h, input } from './dom';
 import { setApplyConfig } from './view';
 
 export function renderConfigPanel(container: HTMLElement, app: App, root: Occurrence): void {
@@ -35,7 +35,7 @@ export function renderConfigPanel(container: HTMLElement, app: App, root: Occurr
     'Clear all selections',
   );
 
-  const date = input('cfg-date', ctx.date, (v) => app.commit(() => (ctx.date = v || undefined)), { type: 'date' });
+  const date = dateField('cfg-date', ctx.date, (v) => app.commit(() => (ctx.date = v || undefined)));
   const unit = input('cfg-unit', ctx.unit, (v) => app.commit(() => (ctx.unit = v ? Number(v) : undefined)), {
     type: 'number',
     min: '1',

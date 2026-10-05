@@ -20,7 +20,7 @@ import {
 } from '../model';
 import type { Occurrence, Status } from '../resolve';
 import { showConfirmDialog, showNewItemTypeDialog } from './dialogs';
-import { button, field, h, input } from './dom';
+import { button, dateField, field, h, input } from './dom';
 import { attachExprCompletion } from './expr-complete';
 import { isSectionOpen, setSectionOpen } from './view';
 
@@ -170,8 +170,8 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
       h(
         'div',
         { className: 'row' },
-        field('Date from', input('eff-df', rel.eff.dateFrom, (v) => setEff({ dateFrom: v || undefined }), { type: 'date' })),
-        field('Date to', input('eff-dt', rel.eff.dateTo, (v) => setEff({ dateTo: v || undefined }), { type: 'date' })),
+        field('Date from', dateField('eff-df', rel.eff.dateFrom, (v) => setEff({ dateFrom: v || undefined }))),
+        field('Date to', dateField('eff-dt', rel.eff.dateTo, (v) => setEff({ dateTo: v || undefined }))),
       ),
       h(
         'div',
