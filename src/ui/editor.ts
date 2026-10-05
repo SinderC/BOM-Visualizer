@@ -67,6 +67,8 @@ export function typeSelect(
 
 /** Type for new children; remembered across renders so consecutive adds keep the last choice. */
 let addChildType: string | undefined = DEFAULT_ITEM_TYPES[0].name;
+/** Name typed for a new child; kept across renders, such as the one after picking its type, until the child is added. */
+let addChildName = '';
 
 export function renderEditor(container: HTMLElement, app: App): void {
   const occ = app.occurrence(app.state.selected);
@@ -195,22 +197,38 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
     h('option', { value: '' }, '— new item —'),
     ...[...doc.items.values()].map((i) => h('option', { value: i.id }, `${i.id} ${i.name}`)),
   );
-  const name = h('input', { name: 'add-name', placeholder: 'New item name' });
+  const name = h('input', { name: 'add-name', placeholder: 'New item name', value: addChildName });
+  name.addEventListener('input', () => (addChildName = name.value));
   if (addChildType && !doc.itemTypes.some((t) => t.name === addChildType)) addChildType = undefined;
   const type = typeSelect(app, 'add-type', addChildType, (t) => (addChildType = t));
   type.title = 'Type of the new item; also sets its ID prefix';
-  existing.addEventListener('change', () => (name.disabled = type.disabled = !!existing.value));
   const add = button(
     {},
     () =>
       app.tryCommit(() => {
         const childId = existing.value || addItem(doc, name.value.trim() || 'New item', '', addChildType).id;
         const rel = addRelation(doc, bom, occ.item.id, childId);
+        addChildName = '';
         collapsed.delete(occ.address);
         app.state.selected = occurrencePath(bom.id, [...occ.path, rel.id]);
       }),
     'Add child',
   );
+  // A new item needs a type; an existing one has its own.
+  const update = () => {
+    name.disabled = type.disabled = !!existing.value;
+    add.disabled = !existing.value && !addChildType;
+    add.title = add.disabled ? 'Select an item type' : '';
+  };
+  update();
+  existing.addEventListener('change', update);
+  for (const el of [name, type] as HTMLElement[]) {
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || add.disabled) return;
+      e.preventDefault();
+      add.click();
+    });
+  }
 
   const out: HTMLElement[] = [h('h3', {}, 'Structure'), h('div', { className: 'row' }, existing), h('div', { className: 'row' }, name, type), add];
   if (occ.relation) {
