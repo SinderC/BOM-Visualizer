@@ -8,6 +8,7 @@ import sample from './samples/car.xml?raw';
 import { createAlignmentView, renderAlignPanel } from './ui/alignment';
 import { renderConfigPanel } from './ui/config-panel';
 import { renderEditor } from './ui/editor';
+import { initResizers } from './ui/resize';
 import { canWrite, renderToolbar } from './ui/toolbar';
 import { watchSystemTheme } from './ui/theme';
 import { applyView, isApplyConfig } from './ui/view';
@@ -163,6 +164,7 @@ addEventListener('beforeunload', (e) => {
 
 watchSystemTheme();
 applyView();
+initResizers();
 render();
 
 const restored = loadAutosave();

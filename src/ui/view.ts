@@ -1,7 +1,8 @@
 /**
  * View options remembered in localStorage: side panels, banded rows and tree-table columns (applied with CSS, so
  * toggling needs no re-render), whether the configuration is applied (read into state at start) and whether rows it
- * excludes are hidden (read by the tree-table when rendering), and which editor sections are collapsed.
+ * excludes are hidden (read by the tree-table when rendering), which editor sections are collapsed and the side
+ * panels' widths.
  */
 const VIEW_KEY = 'bom-visualizer.view';
 
@@ -28,6 +29,7 @@ interface ViewPrefs {
   applyConfig: boolean;
   hideExcluded: boolean;
   collapsedSections: string[]; // editor section keys
+  panelWidths: Partial<Record<Panel, number>>; // px; unset is the CSS default
 }
 
 const list = <T>(v: unknown): T[] => (Array.isArray(v) ? v : []);
@@ -42,10 +44,11 @@ function readStored(): ViewPrefs {
       applyConfig: v.applyConfig !== false,
       hideExcluded: !!v.hideExcluded,
       collapsedSections: list(v.collapsedSections),
+      panelWidths: { ...v.panelWidths },
     };
   } catch {
     // Storage unavailable or corrupt: defaults.
-    return { banded: false, hiddenColumns: [], hiddenPanels: [], applyConfig: true, hideExcluded: false, collapsedSections: [] };
+    return { banded: false, hiddenColumns: [], hiddenPanels: [], applyConfig: true, hideExcluded: false, collapsedSections: [], panelWidths: {} };
   }
 }
 
@@ -56,7 +59,12 @@ const columnStyle = document.head.appendChild(document.createElement('style'));
 export function applyView(): void {
   const root = document.documentElement;
   root.toggleAttribute('data-banded', prefs.banded);
-  for (const p of ['config', 'editor'] as const) root.toggleAttribute(`data-hide-${p}`, prefs.hiddenPanels.includes(p));
+  for (const p of ['config', 'editor'] as const) {
+    root.toggleAttribute(`data-hide-${p}`, prefs.hiddenPanels.includes(p));
+    const width = prefs.panelWidths[p];
+    if (width) root.style.setProperty(`--${p}-size`, `${width}px`);
+    else root.style.removeProperty(`--${p}-size`);
+  }
   columnStyle.textContent = COLUMNS.map((c, i) =>
     prefs.hiddenColumns.includes(c.key) ? `.tree-table tr > :nth-child(${i + 1}) { display: none; }` : '',
   ).join('\n');
@@ -114,5 +122,12 @@ export function setSectionOpen(key: string, open: boolean): void {
   if (isSectionOpen(key) === open) return; // toggle also fires when a section is built open
   prefs.collapsedSections = prefs.collapsedSections.filter((k) => k !== key);
   if (!open) prefs.collapsedSections.push(key);
+  store();
+}
+
+/** Sets a side panel's width in pixels; undefined restores the default. */
+export function setPanelWidth(panel: Panel, width: number | undefined): void {
+  if (width) prefs.panelWidths[panel] = Math.round(width);
+  else delete prefs.panelWidths[panel];
   store();
 }

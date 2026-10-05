@@ -142,8 +142,9 @@ dialog::backdrop { background: rgb(0 0 0 / 0.35); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 
 main {
-  --config-w: 260px;
-  --editor-w: 330px;
+  --config-w: var(--config-size, 260px);
+  --editor-w: var(--editor-size, 330px);
+  position: relative; /* for the resizers */
   display: grid;
   grid-template-columns: var(--config-w) 1fr var(--editor-w);
   min-height: 0;
@@ -164,6 +165,15 @@ aside {
 }
 #config-panel { border-right: 1px solid var(--border); }
 #editor { border-left: 1px solid var(--border); }
+
+/* Drag handles centred on the side panels' inner borders. */
+.resizer { position: absolute; top: 0; bottom: 0; width: 7px; cursor: col-resize; touch-action: none; z-index: 2; }
+.resizer[data-panel='config'] { left: calc(var(--config-w) - 4px); }
+.resizer[data-panel='editor'] { right: calc(var(--editor-w) - 4px); }
+.resizer:hover, .resizer.dragging { background: linear-gradient(var(--accent), var(--accent)) center / 2px 100% no-repeat; }
+:root[data-hide-config] .resizer[data-panel='config'],
+:root[data-hide-editor] body:not(.aligning) .resizer[data-panel='editor'],
+body.no-doc .resizer { display: none; }
 
 h2 { font-size: 14px; margin: 0 0 8px; }
 h2:not(:first-child) { margin-top: 20px; }
@@ -312,6 +322,7 @@ body.aligning .align-view { display: grid; grid-template-columns: 1fr 80px 1fr; 
   main { grid-template-columns: 1fr; }
   #config-panel, #tree, #editor { grid-column: auto; }
   #tree { height: 60vh; }
+  .resizer { display: none; }
   #config-panel, #editor { border: 0; }
   body { height: auto; }
 }
