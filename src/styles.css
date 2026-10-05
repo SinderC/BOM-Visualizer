@@ -142,8 +142,10 @@ dialog::backdrop { background: rgb(0 0 0 / 0.35); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 
 main {
-  --config-w: var(--config-size, 260px);
-  --editor-w: var(--editor-size, 330px);
+  /* Each side panel gets at most half of what is left after 240px for the tree, also when the window shrinks; the stored
+     width comes back when it grows. Keep in step with MIN_TREE_WIDTH in src/ui/resize.ts. */
+  --config-w: min(var(--config-size, 260px), (100vw - 240px) / 2);
+  --editor-w: min(var(--editor-size, 330px), (100vw - 240px) / 2);
   position: relative; /* for the resizers */
   display: grid;
   grid-template-columns: var(--config-w) 1fr var(--editor-w);
