@@ -486,6 +486,13 @@ export function addBom(doc: BomDocument, name: string, type?: BomType, rootId?: 
   return bom;
 }
 
+/** Removes the BOM and its alignments. Items are kept, as they may be used elsewhere. */
+export function removeBom(doc: BomDocument, bomId: string): void {
+  if (doc.boms.length < 2) throw new Error('A document needs at least one BOM');
+  doc.boms = doc.boms.filter((b) => b.id !== bomId);
+  pruneAlignments(doc);
+}
+
 /** Structural checks used when loading a document. Returns human-readable errors. */
 export function validateDocument(doc: BomDocument): string[] {
   const errors: string[] = [];

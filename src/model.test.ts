@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelation, createDocument, moveRelation, moveRelations, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
+import { addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, removeBom, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelation, createDocument, moveRelation, moveRelations, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -331,5 +331,14 @@ describe('alignments', () => {
     const { doc, bom, root, r2 } = alignedSetup();
     moveRelation(doc, bom, r2.id, root);
     expect(doc.alignments).toEqual([]);
+  });
+
+  it('removing a BOM removes its alignments and keeps the items, but not the last BOM', () => {
+    const { doc, bom, mbom, a, b } = alignedSetup();
+    removeBom(doc, mbom.id);
+    expect(doc.boms).toEqual([bom]);
+    expect(doc.alignments).toEqual([]);
+    expect(doc.items.has(a.id) && doc.items.has(b.id)).toBe(true);
+    expect(() => removeBom(doc, bom.id)).toThrow(/at least one BOM/);
   });
 });

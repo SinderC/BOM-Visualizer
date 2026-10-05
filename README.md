@@ -6,7 +6,7 @@ Lightweight browser sandbox for trying out BOM concepts: multi-level structures,
 
 ## Features
 
-- Several BOMs per document (e.g. EBOM + MBOM) sharing items and variant families.
+- Several BOMs per document (e.g. EBOM + MBOM) sharing items and variant families. Edit > Structure types adds, renames, retypes and removes BOMs (removing one removes its alignments and keeps its items); switch between them in the BOM menu.
 - Items have an editable ID and a type from a per-document list (Part, Assembly, Station by default; add your own from the editor).
 - BOM alignment (BOM > Align with): the active BOM and another BOM side by side, read-only, with lines between aligned occurrences (dashed when an end is inside a collapsed row). Select a row on each side and click Align; remove from the side panel. Unaligned rows are marked and coverage is counted. Removing or moving a relation removes the alignments of the occurrences it affects.
 - Variant expressions on relations: `ENGINE=V8 AND (MARKET=EU OR TRIM IN (BASE, SPORT))`, with live validation and suggestions while typing (families, operators, values, AND/OR; ↑/↓, Enter/Tab to pick, Esc to close). Names with spaces are written in double quotes: `"Engine type"="V6 Turbo"`. Renaming a family or value updates the expressions that use it.

@@ -98,8 +98,7 @@ body {
 }
 #toolbar .brand { margin-right: 8px; }
 #toolbar .sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
-#toolbar .file-name { margin-left: auto; font-size: inherit; }
-#toolbar input[name='bom-name'] { width: 180px; }
+#toolbar .file-name { font-size: 20px; }
 /* Chevrons drawn with borders: the ▾ and ▸ glyphs are too small to read at the toolbar's font size. */
 #toolbar .menu-trigger { display: inline-flex; align-items: center; gap: 6px; }
 .caret { width: 5px; height: 5px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); }
@@ -193,11 +192,13 @@ button.icon { padding: 4px 8px; flex: 0 0 auto; }
 .family-row { display: flex; gap: 6px; margin-bottom: 6px; }
 .family-row input:first-child { width: 90px; flex: 0 0 auto; }
 .family-row input:nth-child(2) { flex: 1; min-width: 0; }
-.type-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-.type-row input { flex: 1; min-width: 0; }
-.type-row .muted { width: 56px; text-align: right; }
-.type-row input.prefix { flex: 0 0 80px; }
-.migrate-row { margin-top: 12px; }
+.list-grid { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 6px; }
+.list-row { display: contents; }
+.list-row input { min-width: 0; }
+.list-row input.prefix { width: 80px; }
+.list-row .muted { text-align: right; white-space: nowrap; }
+.list-row .add { grid-column: 3 / -1; justify-self: end; }
+.migrate-row { display: flex; align-items: center; gap: 6px; margin-top: 12px; }
 .migrate-row select { flex: 1; min-width: 0; }
 .id-input { display: flex; align-items: center; gap: 2px; }
 .id-input input { flex: 1; min-width: 0; }

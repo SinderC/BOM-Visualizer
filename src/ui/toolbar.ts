@@ -1,8 +1,8 @@
 import { activeBom, openDoc, resetView, type App } from '../app';
-import { addBom, createDocument } from '../model';
+import { createDocument } from '../model';
 import { parseXml, serializeXml } from '../xml';
-import { showItemTypesDialog, showNewBomDialog, showVariantFamiliesDialog, showUnsavedChangesDialog } from './dialogs';
-import { button, h, input } from './dom';
+import { showItemTypesDialog, showStructureTypesDialog, showVariantFamiliesDialog, showUnsavedChangesDialog } from './dialogs';
+import { button, h } from './dom';
 import { setThemePref, themePref, type ThemePref } from './theme';
 import {
   COLUMNS,
@@ -211,7 +211,6 @@ export function renderToolbar(container: HTMLElement, app: App): void {
     menu('BOM', doc ? bomItems(app) : [], noDoc),
     menu('View', viewItems(app)),
     h('span', { className: 'sep' }),
-    ...(doc ? [bomNameInput(app)] : []),
     fileName,
   );
   for (const trigger of container.querySelectorAll<HTMLButtonElement>(':scope > span > button')) {
@@ -237,22 +236,8 @@ function bomItems(app: App): HTMLElement[] {
     ),
   );
   const exitAlign = button({ title: 'Back to editing this BOM' }, () => app.commit(() => (app.state.align = undefined)), 'Exit alignment view');
-  return [
-    ...switchItems,
-    h('hr'),
-    ...(others.length ? [submenu('Align with', alignItems, false)] : []),
-    ...(app.state.align ? [exitAlign] : []),
-    button(
-      { title: 'Add a BOM to this document' },
-      () => showNewBomDialog((name, type) => switchBom(app, addBom(doc, name, type).id)),
-      'Create new BOM…',
-    ),
-  ];
-}
-
-function bomNameInput(app: App): HTMLInputElement {
-  const bom = activeBom(app.state);
-  return input('bom-name', bom.name, (v) => app.commit(() => (bom.name = v || bom.name)), { title: 'BOM name' });
+  const alignment = [...(others.length ? [submenu('Align with', alignItems, false)] : []), ...(app.state.align ? [exitAlign] : [])];
+  return [...switchItems, ...(alignment.length ? [h('hr'), ...alignment] : [])];
 }
 
 /** Menu entry with its keyboard shortcut right-aligned, as in native menus. */
@@ -270,8 +255,9 @@ function editItems(app: App): HTMLElement[] {
   redo.disabled = !history.canRedo;
   const types = button({ title: 'Add, rename and remove item types' }, () => showItemTypesDialog(app), 'Item types…');
   const families = button({ title: 'Add, rename and remove variant families and their values' }, () => showVariantFamiliesDialog(app), 'Variant families…');
-  types.disabled = families.disabled = !app.state.doc;
-  return [undo, redo, h('hr'), types, families];
+  const structures = button({ title: 'Add, rename and remove BOMs' }, () => showStructureTypesDialog(app), 'Structure types…');
+  types.disabled = structures.disabled = families.disabled = !app.state.doc;
+  return [undo, redo, h('hr'), types, structures, families];
 }
 
 function viewItems(app: App): HTMLElement[] {

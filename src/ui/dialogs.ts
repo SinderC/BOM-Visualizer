@@ -1,10 +1,12 @@
-import { openDoc, type App } from '../app';
+import { openDoc, resetView, type App } from '../app';
 import {
+  addBom,
   addFamily,
   addItemType,
   BOM_TYPES,
   itemTypeUsage,
   migrateItemType,
+  removeBom,
   removeFamily,
   removeItemType,
   renameFamily,
@@ -36,15 +38,6 @@ export function showConfirmDialog(title: string, message: string, confirmLabel: 
 }
 
 const requiredText = () => h('input', { name: 'name', required: true, pattern: '.*\\S.*' });
-
-/** Asks for a new BOM's name and type. */
-export function showNewBomDialog(onCreate: (name: string, type: BomType) => void): void {
-  const name = requiredText();
-  const type = h('select', { name: 'type' }, ...BOM_TYPES.map((t) => h('option', { value: t }, t)));
-  showFormDialog('Create new BOM', 'Create', [field('Name', name), field('Type', type)], () =>
-    onCreate(name.value.trim(), type.value as BomType),
-  );
-}
 
 const PREFIX = { className: 'mono prefix', placeholder: 'ID prefix', pattern: '\\s*\\S*\\s*', title: 'Optional start of the IDs of items of this type' };
 
@@ -84,6 +77,12 @@ function showEditDialog(app: App, title: string, content: (update: (mutate: () =
   dialog.showModal();
 }
 
+/** Rows of an edit dialog in one grid, so the columns line up although the add row has no count or remove button. */
+function listGrid(rows: HTMLElement[][], addFields: HTMLElement[], onAdd: () => void): HTMLElement {
+  const row = (cells: HTMLElement[]) => h('div', { className: 'list-row' }, ...cells);
+  return h('div', { className: 'list-grid' }, ...rows.map(row), row([...addFields, button({ type: 'button', className: 'add' }, onAdd, 'Add')]));
+}
+
 export function showItemTypesDialog(app: App): void {
   showEditDialog(app, 'Item types', (update) => {
     const doc = openDoc(app.state);
@@ -96,7 +95,7 @@ export function showItemTypesDialog(app: App): void {
       });
       const title = n ? `Used by ${n} items` : `Remove ${t.name}`;
       const remove = button({ className: 'icon danger', title, disabled: n > 0 }, () => update(() => removeItemType(doc, t.name)), '✕');
-      return h('div', { className: 'type-row' }, name, prefix, h('span', { className: 'muted' }, `${n} items`), remove);
+      return [name, prefix, h('span', { className: 'muted' }, `${n} items`), remove];
     });
     const newName = h('input', { name: 'new-type', placeholder: 'New type' });
     const newPrefix = h('input', { name: 'new-prefix', ...PREFIX });
@@ -106,8 +105,8 @@ export function showItemTypesDialog(app: App): void {
         if (e.key === 'Enter') add();
       });
     }
-    const out = [...rows, h('div', { className: 'type-row' }, newName, newPrefix, button({ type: 'button' }, add, 'Add'))];
-    if (doc.itemTypes.length < 2) return out;
+    const grid = listGrid(rows, [newName, newPrefix], add);
+    if (doc.itemTypes.length < 2) return [grid];
 
     const typeOptions = () => doc.itemTypes.map((t) => h('option', { value: t.name }, t.name));
     const from = h('select', { name: 'migrate-from', title: 'Type to migrate and remove' }, ...typeOptions());
@@ -115,7 +114,7 @@ export function showItemTypesDialog(app: App): void {
     to.selectedIndex = 1;
     const migrate = () =>
       from.value !== to.value && showMigrateItemTypeDialog(app, from.value, to.value, () => update(() => migrateItemType(doc, from.value, to.value)));
-    return [...out, h('div', { className: 'type-row migrate-row' }, h('span', {}, 'Migrate'), from, h('span', {}, '→'), to, button({ type: 'button' }, migrate, 'Migrate'))];
+    return [grid, h('div', { className: 'migrate-row' }, h('span', {}, 'Migrate'), from, h('span', {}, '→'), to, button({ type: 'button' }, migrate, 'Migrate'))];
   });
 }
 
@@ -135,6 +134,51 @@ function showMigrateItemTypeDialog(app: App, from: string, to: string, onConfirm
     ],
     onConfirm,
   );
+}
+
+/** BOM type picker; an empty choice only for BOMs from files written before types existed. */
+function bomTypeSelect(name: string, value: BomType | undefined): HTMLSelectElement {
+  const options = BOM_TYPES.map((t) => h('option', { value: t }, t));
+  const select = h('select', { name, title: 'BOM type' }, ...(value ? [] : [h('option', { value: '' }, '—')]), ...options);
+  select.value = value ?? '';
+  return select;
+}
+
+export function showStructureTypesDialog(app: App): void {
+  showEditDialog(app, 'Structure types', (update) => {
+    const doc = openDoc(app.state);
+    const { state } = app;
+    const rows = doc.boms.map((bom, i) => {
+      const label = bom.name || bom.id;
+      const name = input(`bom-${i}-name`, bom.name, (v) => update(() => (bom.name = v || bom.name)), { title: 'BOM name' });
+      const type = bomTypeSelect(`bom-${i}-type`, bom.type);
+      type.addEventListener('change', () => update(() => (bom.type = (type.value as BomType) || undefined)));
+      const remove = () => {
+        const n = doc.alignments.filter((a) => a.source.startsWith(`${bom.id}:`) || a.target.startsWith(`${bom.id}:`)).length;
+        const alignments = n ? ` Its ${n} alignments are removed too.` : '';
+        showConfirmDialog('Remove BOM', `Remove ${label}?${alignments} Its items are kept.`, 'Remove', () =>
+          update(() => {
+            removeBom(doc, bom.id);
+            if (state.bomId === bom.id) {
+              state.bomId = doc.boms[0].id;
+              resetView(state);
+            }
+            if (state.align?.bomId === bom.id) state.align = undefined;
+          }),
+        );
+      };
+      const single = doc.boms.length < 2;
+      const removeButton = button({ className: 'icon danger', title: single ? 'The only BOM' : `Remove ${label}`, disabled: single }, remove, '✕');
+      return [name, type, h('span', { className: 'muted' }, `${bom.relations.length} relations`), removeButton];
+    });
+    const newName = h('input', { name: 'new-bom', placeholder: 'New BOM' });
+    const newType = bomTypeSelect('new-bom-type', BOM_TYPES[0]);
+    const add = () => newName.value.trim() && update(() => addBom(doc, newName.value.trim(), newType.value as BomType));
+    newName.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') add();
+    });
+    return [listGrid(rows, [newName, newType], add)];
+  });
 }
 
 export function showVariantFamiliesDialog(app: App): void {
