@@ -33,21 +33,33 @@ const STATUS_TEXT: Record<Status, string> = {
 const MONO = { className: 'mono' };
 const UNIT = { type: 'number', min: '1', step: '1' };
 const NEW_TYPE = '\0new'; // select value of the "New type…" entry; cannot clash with a real type name
+const MIXED = '\0mixed'; // select value shown while selected items have different types
 
-/** Item type picker with a "New type…" entry that adds a type to the document via a dialog. */
-export function typeSelect(app: App, name: string, value: string | undefined, onPick: (type: string | undefined) => void): HTMLSelectElement {
+/**
+ * Item type picker with a "New type…" entry that adds a type to the document via a dialog.
+ * With `mixed`, it shows "— mixed —" until a type is picked.
+ */
+export function typeSelect(
+  app: App,
+  name: string,
+  value: string | undefined,
+  onPick: (type: string | undefined) => void,
+  mixed = false,
+): HTMLSelectElement {
   const doc = openDoc(app.state);
   const select = h(
     'select',
     { name },
+    ...(mixed ? [h('option', { value: MIXED, disabled: true }, '— mixed —')] : []),
     h('option', { value: '' }, '—'),
     ...doc.itemTypes.map((t) => h('option', { value: t.name }, t.name)),
     h('option', { value: NEW_TYPE }, 'New type…'),
   );
-  select.value = value ?? '';
+  const initial = mixed ? MIXED : (value ?? '');
+  select.value = initial;
   select.addEventListener('change', () => {
     if (select.value !== NEW_TYPE) return app.commit(() => onPick(select.value || undefined));
-    select.value = value ?? ''; // stays correct if the dialog is cancelled
+    select.value = initial; // stays correct if the dialog is cancelled
     showNewItemTypeDialog((type, prefix) => app.tryCommit(() => onPick(addItemType(doc, type, prefix))));
   });
   return select;
@@ -62,6 +74,7 @@ export function renderEditor(container: HTMLElement, app: App): void {
     container.replaceChildren(h('h2', {}, 'Editor'), h('p', { className: 'muted' }, 'Select a node in the tree.'));
     return;
   }
+  if (app.state.extraSelected.length) return container.replaceChildren(...multiSection(app, occ));
   container.replaceChildren(
     h('h2', {}, occ.item.name),
     h('p', { className: 'mono muted', title: 'Occurrence address' }, occ.address),
@@ -137,6 +150,37 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
       ),
     ),
   ];
+}
+
+/** Edits for several selected rows: the type of their items, and removing them from their parents. */
+function multiSection(app: App, focused: Occurrence): HTMLElement[] {
+  const doc = openDoc(app.state);
+  const occs = [focused, ...app.state.extraSelected.map((a) => app.occurrence(a)!)];
+  const itemIds = [...new Set(occs.map((o) => o.item.id))];
+  const relIds = [...new Set(occs.flatMap((o) => (o.relation ? [o.relation.id] : [])))];
+  const types = new Set(itemIds.map((id) => doc.items.get(id)!.type));
+
+  // Items, not ids: an id changes with the type prefix.
+  const items = itemIds.map((id) => doc.items.get(id)!);
+  const type = typeSelect(app, 'multi-type', [...types][0], (t) => items.forEach((i) => setItemType(doc, i.id, t)), types.size > 1);
+
+  const out: HTMLElement[] = [
+    h('h2', {}, `${occs.length} rows selected`),
+    h('p', { className: 'muted' }, `${itemIds.length} item${itemIds.length === 1 ? '' : 's'}; item edits apply everywhere.`),
+    h('h3', {}, 'Item'),
+    field('Type', type),
+  ];
+  if (relIds.length) {
+    const remove = () =>
+      app.commit(() => {
+        const bom = activeBom(app.state);
+        relIds.forEach((id) => removeRelation(doc, bom, id));
+        app.state.selected = focused.relation ? parentAddress(focused.address) : focused.address;
+        app.state.extraSelected = [];
+      });
+    out.push(h('h3', {}, 'Structure'), button({ className: 'danger' }, remove, 'Remove from parent'));
+  }
+  return out;
 }
 
 function structureSection(app: App, occ: Occurrence): HTMLElement[] {

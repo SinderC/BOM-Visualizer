@@ -1,8 +1,8 @@
 import { activeBom, openDoc, type App } from '../app';
 import { formatEff } from '../effectivity';
 import { validate } from '../expr';
-import { copyRelation, lockedIdPrefix, moveRelation, occurrencePath, parentAddress, parseQty, renameItem, setItemType, updateItem, updateRelation } from '../model';
-import type { Occurrence } from '../resolve';
+import { lockedIdPrefix, moveRelations, occurrencePath, parentAddress, parseQty, renameItem, setItemType, updateItem, updateRelation } from '../model';
+import { flatten, type Occurrence } from '../resolve';
 import { h } from './dom';
 import { typeSelect } from './editor';
 import { COLUMNS, isColumnShown, isHideExcluded } from './view';
@@ -12,20 +12,28 @@ const INDENT = 18;
 /** What a tree-table shows and edits: its own selection, and whether in-place edit and drag and drop are on. */
 export interface Pane {
   editable: boolean;
+  /** The focused row. */
   selected(): string | undefined;
-  select(address: string | undefined): void;
+  /** The other selected rows; only panes that allow selecting several rows have it. */
+  extra?(): string[];
+  select(address: string | undefined, extra?: string[]): void;
 }
 
 /** The active BOM's pane: edits the document and uses the main selection. */
 export const editPane = (app: App): Pane => ({
   editable: true,
   selected: () => app.state.selected,
-  select: (address) => (app.state.selected = address),
+  extra: () => app.state.extraSelected,
+  select: (address, extra = []) => {
+    app.state.selected = address;
+    app.state.extraSelected = extra;
+  },
 });
 
 /** Indented tree-table (structure-manager style) with collapse, selection and keyboard navigation. */
 export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   let visible: Occurrence[] = []; // rows in display order, for keyboard navigation
+  let all: Occurrence[] = []; // all rows in display order, shown or not
   const tbody = h('tbody');
   const table = h(
     'table',
@@ -35,7 +43,8 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   );
   container.append(table);
 
-  const select = (address: string | undefined) => app.commit(() => pane.select(address));
+  const select = (address: string | undefined, extra?: string[]) => app.commit(() => pane.select(address, extra));
+  const selection = () => [pane.selected(), ...(pane.extra?.() ?? [])].filter((a) => a !== undefined);
   const setCollapsed = (address: string, collapse: boolean) =>
     app.commit(() => (collapse ? app.state.collapsed.add(address) : app.state.collapsed.delete(address)));
 
@@ -44,8 +53,35 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
     const address = target.closest('tr')?.dataset.address;
     if (!address) return;
     if (target.closest('.twisty')) setCollapsed(address, !app.state.collapsed.has(address));
+    else if (pane.extra && (e.ctrlKey || e.metaKey)) toggle(address);
+    else if (pane.extra && e.shiftKey) selectRange(address);
     else select(address);
   });
+  // On macOS, Ctrl+click opens the context menu instead of clicking.
+  table.addEventListener('contextmenu', (e) => {
+    const address = (e.target as HTMLElement).closest('tr')?.dataset.address;
+    if (!address || !pane.extra || !e.ctrlKey) return;
+    e.preventDefault();
+    toggle(address);
+  });
+
+  /** Ctrl/Cmd+click: adds the row to the selection as its focus, or takes it out. */
+  function toggle(address: string): void {
+    const rows = selection();
+    if (!rows.includes(address)) return select(address, rows);
+    const rest = rows.filter((a) => a !== address);
+    const focus = pane.selected() === address ? rest.at(-1) : pane.selected();
+    select(focus, rest.filter((a) => a !== focus));
+  }
+
+  /** Shift+click: selects the shown rows from the focused row to this one; the focus stays. */
+  function selectRange(address: string): void {
+    const focus = pane.selected();
+    const [from, to] = [focus, address].map((a) => visible.findIndex((o) => o.address === a));
+    if (from < 0) return select(address);
+    const range = visible.slice(Math.min(from, to), Math.max(from, to) + 1).map((o) => o.address);
+    select(focus, range.filter((a) => a !== focus));
+  }
 
   // Double-click a cell to edit its value in place. Enter or leaving the field saves, Escape cancels,
   // Tab / Shift+Tab saves and edits the next editable cell to the right / left, wrapping to the next / previous row.
@@ -108,8 +144,9 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
 
   // Drag a row onto another row to make it a child there, or onto a row's top/bottom edge to place it before/after
   // that row as a sibling. Holding Ctrl or Alt/Option when dropping copies the relation instead of moving it.
+  // Dragging a selected row drags all selected rows that can move, in display order.
   type Mode = 'into' | 'before' | 'after';
-  let dragged: Occurrence | undefined;
+  let dragged: Occurrence[] = [];
   let dropRow: HTMLElement | undefined;
   const setDropRow = (row: HTMLElement | undefined, mode?: Mode) => {
     dropRow?.classList.remove('drop-into', 'drop-before', 'drop-after');
@@ -122,16 +159,17 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   const dropTargetAt = (e: DragEvent) => {
     const row = (e.target as HTMLElement).closest('tr');
     const target = app.occurrence(row?.dataset.address);
-    const rel = dragged?.relation;
-    if (!row || !target || !dragged || !rel) return undefined;
+    if (!row || !target || !dragged.length) return undefined;
     const { top, height } = row.getBoundingClientRect();
     const y = (e.clientY - top) / height;
     const mode: Mode = !target.relation ? 'into' : y < 0.25 ? 'before' : y > 0.75 ? 'after' : 'into';
     const copy = isCopy(e);
 
-    if (target.address.startsWith(`${dragged.address}/`)) return undefined;
-    if (target.address === dragged.address && (mode === 'into' || !copy)) return undefined;
-    if (mode === 'into' && !copy && target.item.id === rel.parentId) return undefined;
+    const blocked = (d: Occurrence) =>
+      target.address.startsWith(`${d.address}/`) ||
+      (target.address === d.address && (mode === 'into' || !copy)) ||
+      (mode === 'into' && !copy && target.item.id === d.relation!.parentId);
+    if (dragged.some(blocked)) return undefined;
 
     const parentPath = mode === 'into' ? target.path : target.path.slice(0, -1);
     const parent = app.occurrence(occurrencePath(activeBom(app.state).id, parentPath))!;
@@ -143,10 +181,12 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
 
   table.addEventListener('dragstart', (e) => {
     if (!pane.editable) return e.preventDefault();
-    dragged = app.occurrence((e.target as HTMLElement).closest('tr')?.dataset.address);
-    if (!dragged?.relation) return e.preventDefault();
+    const occ = app.occurrence((e.target as HTMLElement).closest('tr')?.dataset.address);
+    if (!occ?.relation) return e.preventDefault();
+    const rows = selection();
+    dragged = rows.includes(occ.address) ? movable(rows) : [occ];
     e.dataTransfer!.effectAllowed = 'copyMove';
-    e.dataTransfer!.setData('text/plain', dragged.address); // Firefox needs data to start a drag
+    e.dataTransfer!.setData('text/plain', occ.address); // Firefox needs data to start a drag
   });
   table.addEventListener('dragover', (e) => {
     const hit = dropTargetAt(e);
@@ -160,23 +200,34 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   });
   table.addEventListener('dragend', () => {
     setDropRow(undefined);
-    dragged = undefined;
+    dragged = [];
   });
   table.addEventListener('drop', (e) => {
     const hit = dropTargetAt(e);
-    const relId = dragged?.relation?.id;
-    if (!hit || !relId) return;
+    if (!hit) return;
     e.preventDefault();
     const { parent, beforeId, copy } = hit;
+    const ids = dragged.map((d) => d.relation!.id);
     app.tryCommit(() => {
       const bom = activeBom(app.state);
-      const rel = copy
-        ? copyRelation(openDoc(app.state), bom, relId, parent.item.id, beforeId)
-        : moveRelation(openDoc(app.state), bom, relId, parent.item.id, beforeId);
+      const rels = moveRelations(openDoc(app.state), bom, ids, parent.item.id, beforeId, copy);
       app.state.collapsed.delete(parent.address);
-      pane.select(occurrencePath(bom.id, [...parent.path, rel.id]));
+      const [first, ...rest] = rels.map((r) => occurrencePath(bom.id, [...parent.path, r.id]));
+      pane.select(first, rest);
     });
   });
+
+  /** The rows that move with a drag of these selected rows: those with a relation and no selected ancestor, one per relation. */
+  function movable(addresses: string[]): Occurrence[] {
+    const ids = new Set<string>();
+    return all.filter((o) => {
+      const rel = o.relation;
+      if (!rel || ids.has(rel.id) || !addresses.includes(o.address)) return false;
+      if (addresses.some((a) => o.address.startsWith(`${a}/`))) return false;
+      ids.add(rel.id);
+      return true;
+    });
+  }
 
   table.addEventListener('keydown', (e) => {
     const i = visible.findIndex((o) => o.address === pane.selected());
@@ -208,7 +259,8 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   /** Rows listed in `unaligned` are marked as such. */
   function render(root: Occurrence, unaligned?: Set<string>): void {
     const { collapsed } = app.state;
-    const selected = pane.selected();
+    const selected = new Set(selection());
+    all = flatten(root);
     visible = [];
     const rows: HTMLTableRowElement[] = [];
     // Excluded rows only exist while the configuration is applied; their children are excluded too.
@@ -217,7 +269,8 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
       if (hideExcluded && occ.status !== 'included') return;
       visible.push(occ);
       const isCollapsed = collapsed.has(occ.address);
-      const row = renderRow(occ, depth, isCollapsed, occ.address === selected);
+      const row = renderRow(occ, depth, isCollapsed, selected.has(occ.address));
+      row.classList.toggle('focused', occ.address === pane.selected());
       row.draggable &&= pane.editable;
       row.classList.toggle('unaligned', !!unaligned?.has(occ.address));
       rows.push(row);
@@ -225,7 +278,7 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
     };
     walk(root, 0);
     tbody.replaceChildren(...rows);
-    tbody.querySelector('tr.selected')?.scrollIntoView({ block: 'nearest' });
+    tbody.querySelector('tr.focused')?.scrollIntoView({ block: 'nearest' });
   }
 
   return { table, render };

@@ -21,6 +21,7 @@ const state: State = {
   bomId: 'EBOM',
   fileName: 'car.xml',
   ctx: { enabled: isApplyConfig(), options: { ENGINE: 'V8', MARKET: 'US', TRIM: 'SPORT' } },
+  extraSelected: [],
   collapsed: new Set(),
 };
 
@@ -127,6 +128,7 @@ function render(): void {
   // Addresses start with the BOM id, so one index serves both panes.
   index = new Map([root, alignRoot].flatMap((r) => (r ? flatten(r) : [])).map((o) => [o.address, o]));
   if (state.selected && !index.has(state.selected)) state.selected = undefined;
+  state.extraSelected = state.selected ? state.extraSelected.filter((a) => index.has(a) && a !== state.selected) : [];
   if (state.align?.selected && !index.has(state.align.selected)) state.align.selected = undefined;
 
   document.body.classList.toggle('aligning', !!alignRoot);

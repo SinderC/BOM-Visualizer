@@ -399,6 +399,19 @@ export function copyRelation(doc: BomDocument, bom: Bom, id: string, parentId: s
 }
 
 /**
+ * Moves (or copies) relations under `parentId`, before sibling `beforeId` (or last), keeping their given order.
+ * When moving, a `beforeId` that is itself moved is replaced by the next sibling that stays.
+ */
+export function moveRelations(doc: BomDocument, bom: Bom, ids: string[], parentId: string, beforeId: string | undefined, copy: boolean): Relation[] {
+  if (copy) return ids.map((id) => copyRelation(doc, bom, id, parentId, beforeId));
+  if (beforeId !== undefined && ids.includes(beforeId)) {
+    const siblings = sortedChildren(bom, parentId);
+    beforeId = siblings.slice(siblings.findIndex((r) => r.id === beforeId)).find((r) => !ids.includes(r.id))?.id;
+  }
+  return ids.map((id) => moveRelation(doc, bom, id, parentId, beforeId));
+}
+
+/**
  * Removes the relation, and the child's own relations if the child is no longer used in this BOM. Alignments of the
  * removed occurrences are removed too.
  */

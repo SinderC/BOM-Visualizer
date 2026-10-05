@@ -7,7 +7,8 @@ export interface State {
   bomId: string;
   fileName: string;
   ctx: ConfigContext;
-  selected?: string; // occurrence address
+  selected?: string; // occurrence address; the focused row of a multi-selection
+  extraSelected: string[]; // the other selected rows' addresses
   collapsed: Set<string>; // occurrence addresses, of any BOM
   align?: { bomId: string; selected?: string }; // alignment view: the right-hand BOM and its selection
 }
@@ -44,6 +45,7 @@ export function activeBom(state: State): Bom {
 /** Clears what is shown of the previous BOM or document: selection, collapsed rows and the alignment view. */
 export function resetView(state: State): void {
   state.selected = undefined;
+  state.extraSelected = [];
   state.collapsed.clear();
   state.align = undefined;
 }

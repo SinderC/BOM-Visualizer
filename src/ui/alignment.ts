@@ -2,7 +2,7 @@ import { activeBom, openDoc, type App } from '../app';
 import { addAlignment, findBom, parentAddress, removeAlignment, type Alignment, type Bom } from '../model';
 import { flatten, type Occurrence } from '../resolve';
 import { button, h } from './dom';
-import { createTreeTable } from './tree-table';
+import { createTreeTable, editPane } from './tree-table';
 
 const SVG = 'http://www.w3.org/2000/svg';
 
@@ -40,11 +40,7 @@ export function createAlignmentView(container: HTMLElement, app: App) {
   svg.classList.add('align-links');
   container.append(h('div', { className: 'align-view' }, leftPane, svg, rightPane));
 
-  const left = createTreeTable(leftPane, app, {
-    editable: false,
-    selected: () => app.state.selected,
-    select: (a) => (app.state.selected = a),
-  });
+  const left = createTreeTable(leftPane, app, { ...editPane(app), editable: false, extra: undefined });
   const right = createTreeTable(rightPane, app, {
     editable: false,
     selected: () => app.state.align?.selected,

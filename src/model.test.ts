@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
+import { addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelation, createDocument, moveRelation, moveRelations, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -103,6 +103,28 @@ describe('model', () => {
       [ra.id, '20'],
       [rb.id, '30'],
     ]);
+  });
+
+  it('moves several relations together, keeping their order', () => {
+    const { doc, bom, a, b, root } = setup();
+    const [c, d] = [addItem(doc, 'C'), addItem(doc, 'D')];
+    const [ra, rb, rc, rd] = [a, b, c, d].map((i) => addRelation(doc, bom, root, i.id)); // 10, 20, 30, 40
+    moveRelations(doc, bom, [rc.id, rd.id], root, ra.id, false);
+    expect(sortedChildren(bom, root).map((r) => r.id)).toEqual([rc.id, rd.id, ra.id, rb.id]);
+    moveRelations(doc, bom, [rc.id, ra.id], root, ra.id, false); // before a moved one: before the next that stays
+    expect(sortedChildren(bom, root).map((r) => r.id)).toEqual([rd.id, rc.id, ra.id, rb.id]);
+    moveRelations(doc, bom, [rc.id, rd.id], a.id, undefined, false);
+    expect(sortedChildren(bom, a.id).map((r) => r.id)).toEqual([rc.id, rd.id]);
+    expect(() => moveRelations(doc, bom, [rb.id, ra.id], a.id, undefined, false)).toThrow(/cycle/);
+  });
+
+  it('copies several relations together', () => {
+    const { doc, bom, a, b, root } = setup();
+    const c = addItem(doc, 'C');
+    const [ra, rb, rc] = [a, b, c].map((i) => addRelation(doc, bom, root, i.id));
+    const copies = moveRelations(doc, bom, [rb.id, rc.id], a.id, undefined, true);
+    expect(copies.map((r) => [r.parentId, r.childId])).toEqual([[a.id, b.id], [a.id, c.id]]);
+    expect(sortedChildren(bom, root).map((r) => r.id)).toEqual([ra.id, rb.id, rc.id]);
   });
 
   it('copies a relation with its data under a new parent', () => {
