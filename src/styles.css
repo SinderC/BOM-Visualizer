@@ -189,6 +189,7 @@ details:not([open]) > summary .caret { transform: translateX(-2px) rotate(-45deg
 
 label { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; font-size: 12px; color: var(--muted); }
 label.check { flex-direction: row; align-items: center; gap: 6px; margin: 0 0 8px; color: var(--text); }
+.clear-config { margin-bottom: 12px; }
 fieldset { border: 0; padding: 0; margin: 0; }
 fieldset:disabled { opacity: 0.5; }
 .row { display: flex; gap: 8px; }

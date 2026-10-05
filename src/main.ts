@@ -33,7 +33,7 @@ const history = createHistory(
 );
 /** Snapshot as last opened from or saved to file; undefined = never saved (always dirty). */
 let cleanSnapshot: string | undefined = history.snapshot;
-let saved: Autosaved = { fileName: state.fileName, xml: history.snapshot, dirty: false }; // last autosaved state
+let saved = ''; // JSON of the last autosave
 let autosaveFailed = false;
 let renderQueued = false;
 let toastTimer: number | undefined;
@@ -96,14 +96,19 @@ function resetDocument(): void {
   app.commit();
 }
 
-/** Writes the document to localStorage when it, its file name or its unsaved state changed; reports a failure once. */
+/**
+ * Writes the document, its file name, its unsaved state and the configuration to localStorage when any changed;
+ * reports a failure once.
+ */
 function autosave(): void {
-  const current: Autosaved = { fileName: state.fileName, xml: history.snapshot, dirty: app.isDirty() };
-  if (current.xml === saved.xml && current.fileName === saved.fileName && current.dirty === saved.dirty) return;
+  const { options, date, unit } = state.ctx;
+  const current: Autosaved = { fileName: state.fileName, xml: history.snapshot, dirty: app.isDirty(), config: { options, date, unit } };
+  const json = JSON.stringify(current);
+  if (json === saved) return;
   const error = writeAutosave(current);
   if (error && !autosaveFailed) app.toast(`Autosave failed: ${error}`, true);
   autosaveFailed = !!error;
-  if (!error) saved = current;
+  if (!error) saved = json;
 }
 
 const treeTable = createTreeTable($('tree'), app, editPane(app));
@@ -173,10 +178,9 @@ if (restored) {
     if (!restored.xml) app.closeDocument();
     else {
       app.loadDocument(parseXml(restored.xml), restored.fileName);
-      if (restored.dirty ?? true) {
-        cleanSnapshot = undefined;
-        app.commit();
-      }
+      Object.assign(state.ctx, restored.config);
+      if (restored.dirty ?? true) cleanSnapshot = undefined;
+      app.commit();
       app.toast(`Restored ${restored.fileName} from autosave`);
     }
   } catch (e) {

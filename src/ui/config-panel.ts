@@ -1,6 +1,6 @@
 import { openDoc, type App } from '../app';
 import { flatten, type Occurrence } from '../resolve';
-import { field, h, input } from './dom';
+import { button, field, h, input } from './dom';
 import { setApplyConfig } from './view';
 
 export function renderConfigPanel(container: HTMLElement, app: App, root: Occurrence): void {
@@ -24,6 +24,17 @@ export function renderConfigPanel(container: HTMLElement, app: App, root: Occurr
     return field(f.name, select);
   });
 
+  const hasSelection = Object.values(ctx.options).some(Boolean) || !!ctx.date || ctx.unit !== undefined;
+  const clear = button(
+    { className: 'clear-config', disabled: !ctx.enabled || !hasSelection },
+    () =>
+      app.commit(() => {
+        ctx.options = {};
+        ctx.date = ctx.unit = undefined;
+      }),
+    'Clear all selections',
+  );
+
   const date = input('cfg-date', ctx.date, (v) => app.commit(() => (ctx.date = v || undefined)), { type: 'date' });
   const unit = input('cfg-unit', ctx.unit, (v) => app.commit(() => (ctx.unit = v ? Number(v) : undefined)), {
     type: 'number',
@@ -34,6 +45,7 @@ export function renderConfigPanel(container: HTMLElement, app: App, root: Occurr
   container.replaceChildren(
     h('h2', {}, 'Configuration'),
     h('label', { className: 'check' }, enabled, 'Apply configuration'),
+    clear,
     h('fieldset', { disabled: !ctx.enabled }, ...options, field('Date', date), field('Unit', unit)),
     h('p', { className: 'muted' }, ctx.enabled ? `${included} of ${total} occurrences included` : `${total} occurrences`),
   );

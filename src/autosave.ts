@@ -1,10 +1,16 @@
-/** Working copy kept in localStorage so the document survives reloads. One per origin; the last tab to write wins. */
+import type { ConfigContext } from './resolve';
+
+/**
+ * Working copy kept in localStorage so the document and the configuration survive reloads. One per origin; the last
+ * tab to write wins.
+ */
 const AUTOSAVE_KEY = 'bom-visualizer.autosave';
 
 export interface Autosaved {
   fileName: string;
   xml: string; // empty = no document open (closed)
   dirty?: boolean; // unsaved to file; absent in autosaves written before this was tracked
+  config?: Pick<ConfigContext, 'options' | 'date' | 'unit'>; // absent in autosaves written before this was kept
 }
 
 export function loadAutosave(): Autosaved | undefined {
