@@ -113,7 +113,7 @@ export function renderAlignPanel(container: HTMLElement, app: App, leftRoot: Occ
 
   const isLinked = shown.some((l) => l.left === leftOcc?.address && l.right === rightOcc?.address);
   const align = button(
-    { title: 'Align the two selected occurrences' },
+    { className: 'primary', title: 'Align the two selected occurrences' },
     () => app.tryCommit(() => addAlignment(doc, leftOcc!.address, rightOcc!.address)),
     'Align',
   );

@@ -17,10 +17,10 @@ import {
 } from '../model';
 import { button, field, h, input } from './dom';
 
-/** Modal form; `onSubmit` runs only when confirmed. Without a field to type in, Enter confirms. */
-function showFormDialog(title: string, submitLabel: string, fields: HTMLElement[], onSubmit: () => void, submitClass = ''): void {
+/** Modal form; `onSubmit` runs only when confirmed. Without a field to type in, Enter confirms. `danger` fills the submit button red. */
+function showFormDialog(title: string, submitLabel: string, fields: HTMLElement[], onSubmit: () => void, danger = false): void {
   const cancel = h('button', { type: 'button' }, 'Cancel');
-  const submit = h('button', { className: submitClass }, submitLabel);
+  const submit = h('button', { className: danger ? 'primary danger' : 'primary' }, submitLabel);
   const form = h('form', { method: 'dialog' }, h('h2', {}, title), ...fields, h('div', { className: 'dialog-actions' }, cancel, submit));
   const dialog = h('dialog', {}, form);
 
@@ -34,7 +34,7 @@ function showFormDialog(title: string, submitLabel: string, fields: HTMLElement[
 
 /** Asks to confirm a destructive action, with the confirm button in the danger color; Enter confirms, Escape cancels. */
 export function showConfirmDialog(title: string, message: string, confirmLabel: string, onConfirm: () => void): void {
-  showFormDialog(title, confirmLabel, [h('p', {}, message)], onConfirm, 'danger');
+  showFormDialog(title, confirmLabel, [h('p', {}, message)], onConfirm, true);
 }
 
 const requiredText = () => h('input', { name: 'name', required: true, pattern: '.*\\S.*' });
@@ -69,7 +69,7 @@ function showEditDialog(app: App, title: string, content: (update: (mutate: () =
     {},
     h('h2', {}, title),
     body,
-    h('div', { className: 'dialog-actions' }, button({ type: 'button' }, () => dialog.close(), 'Done')),
+    h('div', { className: 'dialog-actions' }, button({ type: 'button', className: 'primary' }, () => dialog.close(), 'Done')),
   );
   render();
   dialog.addEventListener('close', () => dialog.remove());
@@ -235,8 +235,8 @@ export function showVariantFamiliesDialog(app: App): void {
 
 /** Asks whether to save unsaved changes first. `onChoice` is not called on Cancel or Escape. */
 export function showUnsavedChangesDialog(fileName: string, onChoice: (save: boolean) => void): void {
-  const choice = (value: string, label: string) => h('button', { value }, label);
-  const save = choice('save', 'Save');
+  const choice = (value: string, label: string, className = '') => h('button', { value, className }, label);
+  const save = choice('save', 'Save', 'primary');
   const dialog = h(
     'dialog',
     {},

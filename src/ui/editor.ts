@@ -205,7 +205,7 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
   const type = typeSelect(app, 'add-type', addChildType, (t) => (addChildType = t));
   type.title = 'Type of the new item; also sets its ID prefix';
   const add = button(
-    {},
+    { className: 'primary' },
     () =>
       app.tryCommit(() => {
         const childId = existing.value || addItem(doc, name.value.trim() || 'New item', '', addChildType).id;

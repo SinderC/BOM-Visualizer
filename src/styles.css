@@ -32,6 +32,7 @@
   --muted: #6b7484;
   --accent: #2f6fde;
   --accent-soft: #e6eefc;
+  --on-accent: #ffffff;
   --expr: #7a4dc9;
   --eff: #b0651a;
   --danger: #c93a3a;
@@ -53,6 +54,7 @@
   --muted: #8b94a3;
   --accent: #6b9cff;
   --accent-soft: #23314d;
+  --on-accent: #14171c; /* white on the light blue fails contrast */
   --expr: #b89af0;
   --eff: #e0a060;
   --danger: #ff7272;
@@ -187,9 +189,17 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 button { cursor: pointer; background: var(--panel); }
 button:hover:not(:disabled) { background: var(--accent-soft); }
 button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button.danger { color: var(--danger); }
+/* The default action of a dialog or panel; mixing with --text darkens it in light mode and lightens it in dark. */
+button.primary { --fill: var(--accent); background: var(--fill); border-color: var(--fill); color: var(--on-accent); font-weight: 500; }
+button.primary.danger { --fill: var(--danger); color: var(--on-danger); }
+button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--fill) 85%, var(--text)); }
 #editor > button.danger { margin-top: 8px; } /* Remove from parent, below Add child */
 button.icon { padding: 4px 8px; flex: 0 0 auto; }
+/* A red ✕ on every list row is noisy; it turns red when pointed at. */
+button.icon.danger { color: var(--muted); }
+button.icon.danger:is(:hover, :focus-visible):not(:disabled) { color: var(--danger); }
 
 .list-grid { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 6px; }
 .list-row { display: contents; }
@@ -206,7 +216,7 @@ button.icon { padding: 4px 8px; flex: 0 0 auto; }
 .errors { color: var(--danger); margin: -4px 0 6px; padding-left: 18px; font-size: 12px; }
 .errors:empty { display: none; }
 .hint { margin-top: 0; }
-.status { padding: 4px 8px; border-radius: 4px; background: var(--accent-soft); }
+.status { padding: 4px 8px; border-radius: 4px; background: color-mix(in srgb, currentColor 12%, transparent); }
 .status.st-included { color: var(--ok); }
 .status:not(.st-included) { color: var(--danger); }
 
