@@ -99,6 +99,8 @@ body {
 #toolbar .brand { margin-right: 8px; }
 #toolbar .sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
 #toolbar .file-name { font-size: 20px; }
+#toolbar .repo-link { margin-left: auto; display: flex; color: var(--muted); }
+#toolbar .repo-link:hover { color: var(--text); }
 /* Chevrons drawn with borders: the ▾ and ▸ glyphs are too small to read at the toolbar's font size. */
 #toolbar .menu-trigger { display: inline-flex; align-items: center; gap: 6px; }
 .caret { width: 5px; height: 5px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); }
