@@ -44,13 +44,13 @@ function menu(label: string, items: HTMLElement[], disabled = false): HTMLElemen
 
 /**
  * Entry that opens a nested menu to its right, on hover or click. Nested in the parent list so both stay open.
- * Has an empty check column so its label lines up with check items in the same menu.
+ * With `checkColumn`, has an empty check column so its label lines up with check items in the same menu.
  */
-function submenu(label: string, items: HTMLElement[]): HTMLElement {
+function submenu(label: string, items: HTMLElement[], checkColumn = true): HTMLElement {
   const trigger = h(
     'button',
     { className: 'check-item', dataset: { keepOpen: '' } },
-    h('span', { className: 'check' }),
+    ...(checkColumn ? [h('span', { className: 'check' })] : []),
     h('span', {}, label),
     h('span', { className: 'muted caret right' }),
   );
@@ -240,7 +240,7 @@ function bomItems(app: App): HTMLElement[] {
   return [
     ...switchItems,
     h('hr'),
-    ...(others.length ? [submenu('Align with', alignItems)] : []),
+    ...(others.length ? [submenu('Align with', alignItems, false)] : []),
     ...(app.state.align ? [exitAlign] : []),
     button(
       { title: 'Add a BOM to this document' },
