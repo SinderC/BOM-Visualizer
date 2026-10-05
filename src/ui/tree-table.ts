@@ -1,5 +1,5 @@
 import { activeBom, openDoc, type App } from '../app';
-import { formatEff } from '../effectivity';
+import { formatEffEnd } from '../effectivity';
 import { validate } from '../expr';
 import { lockedIdPrefix, moveRelations, occurrencePath, parentAddress, parseQty, renameItem, setItemType, updateItem, updateRelation } from '../model';
 import { flatten, type Occurrence } from '../resolve';
@@ -341,7 +341,6 @@ function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelec
     : h('span', { className: 'twisty leaf' });
   const name = h('td', { className: 'name', dataset: { col: 'name' } }, twisty, h('span', {}, occ.item.name));
   name.style.paddingLeft = `${6 + depth * INDENT}px`;
-  const eff = rel ? formatEff(rel.eff) : '';
   return h(
     'tr',
     {
@@ -356,7 +355,8 @@ function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelec
     h('td', { className: 'num', dataset: { col: 'qty' } }, rel ? String(rel.qty) : ''),
     h('td', { className: 'num', dataset: { col: 'findNo' } }, rel?.findNo ?? ''),
     h('td', { className: 'expr', title: rel?.variantExpr ?? '', dataset: { col: 'variant' } }, h('span', {}, rel?.variantExpr ?? '')),
-    h('td', { className: 'eff' }, eff),
+    h('td', { className: 'eff' }, rel ? formatEffEnd(rel.eff, 'from') : ''),
+    h('td', { className: 'eff' }, rel ? formatEffEnd(rel.eff, 'to') : ''),
     h('td', { className: 'filler' }),
   );
 }

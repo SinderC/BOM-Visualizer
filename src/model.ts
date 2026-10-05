@@ -4,7 +4,7 @@ export interface Effectivity {
   dateFrom?: string; // ISO yyyy-mm-dd, inclusive
   dateTo?: string;
   unitFrom?: number; // inclusive
-  unitTo?: number; // undefined = UP
+  unitTo?: number; // undefined = open (UP in Teamcenter terms)
 }
 
 export interface Item {
@@ -400,7 +400,7 @@ export function parseQty(v: string, current: number): number {
 /** Unit (serial) numbers start at 1. */
 export const isUnit = (n: number) => Number.isInteger(n) && n >= 1;
 
-/** Parses an edited effectivity unit; blank clears it (UP for unitTo), anything but a unit number keeps `current`. */
+/** Parses an edited effectivity unit; blank clears it (open-ended), anything but a unit number keeps `current`. */
 export function parseUnit(v: string, current: number | undefined): number | undefined {
   if (v === '') return undefined;
   const n = Number(v);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatEff, isEffective } from './effectivity';
+import { formatEffEnd, isEffective } from './effectivity';
 
 describe('effectivity', () => {
   const eff = { dateFrom: '2026-01-01', dateTo: '2026-12-31', unitFrom: 10, unitTo: 50 };
@@ -19,9 +19,12 @@ describe('effectivity', () => {
     expect(isEffective(eff, {})).toBe(true);
   });
 
-  it('formats a short label', () => {
-    expect(formatEff({})).toBe('');
-    expect(formatEff({ dateFrom: '2026-01-01', unitFrom: 10 })).toBe('2026-01-01→ · U10–UP');
-    expect(formatEff({ dateTo: '2026-06-30', unitTo: 5 })).toBe('…→2026-06-30 · U1–5');
+  it('formats each end', () => {
+    const ends = (eff: Parameters<typeof formatEffEnd>[0]) => [formatEffEnd(eff, 'from'), formatEffEnd(eff, 'to')];
+    expect(ends({})).toEqual(['', '']);
+    expect(ends({ dateFrom: '2026-01-01' })).toEqual(['2026-01-01', '']);
+    expect(ends({ unitFrom: 10 })).toEqual(['10', '']);
+    expect(ends({ dateFrom: '2026-01-01', unitFrom: 10 })).toEqual(['2026-01-01 · 10', '']);
+    expect(ends({ dateTo: '2026-06-30', unitTo: 5 })).toEqual(['', '2026-06-30 · 5']);
   });
 });

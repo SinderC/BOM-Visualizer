@@ -177,10 +177,7 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
         'div',
         { className: 'row' },
         field('Unit from', input('eff-uf', rel.eff.unitFrom, (v) => setEff({ unitFrom: parseUnit(v, rel.eff.unitFrom) }), UNIT)),
-        field(
-          'Unit to',
-          input('eff-ut', rel.eff.unitTo, (v) => setEff({ unitTo: parseUnit(v, rel.eff.unitTo) }), { ...UNIT, placeholder: 'UP' }),
-        ),
+        field('Unit to', input('eff-ut', rel.eff.unitTo, (v) => setEff({ unitTo: parseUnit(v, rel.eff.unitTo) }), UNIT)),
       ),
     ),
   ];

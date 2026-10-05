@@ -19,7 +19,8 @@ export const COLUMNS = [
   { key: 'qty', label: 'Qty' },
   { key: 'findNo', label: 'Find no.' },
   { key: 'variant', label: 'Variant' },
-  { key: 'eff', label: 'Effectivity' },
+  { key: 'effFrom', label: 'Eff. from' },
+  { key: 'effTo', label: 'Eff. to' },
 ];
 
 interface ViewPrefs {
@@ -39,7 +40,8 @@ function readStored(): ViewPrefs {
     const v = JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') as Partial<ViewPrefs>;
     return {
       banded: !!v.banded,
-      hiddenColumns: list(v.hiddenColumns),
+      // The Effectivity column was split in two; a hidden one hides both.
+      hiddenColumns: list<string>(v.hiddenColumns).flatMap((k) => (k === 'eff' ? ['effFrom', 'effTo'] : [k])),
       hiddenPanels: list(v.hiddenPanels),
       applyConfig: v.applyConfig !== false,
       hideExcluded: !!v.hideExcluded,

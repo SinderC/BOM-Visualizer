@@ -19,12 +19,8 @@ export function isEffective(eff: Effectivity, ctx: EffectivityContext): boolean 
   return true;
 }
 
-/** Short label such as `2026-01-01→ · U10–UP`; empty when unconstrained. */
-export function formatEff(eff: Effectivity): string {
-  const parts: string[] = [];
-  if (eff.dateFrom || eff.dateTo) parts.push(`${eff.dateFrom ?? '…'}→${eff.dateTo ?? ''}`);
-  if (eff.unitFrom !== undefined || eff.unitTo !== undefined) {
-    parts.push(`U${eff.unitFrom ?? 1}–${eff.unitTo ?? 'UP'}`);
-  }
-  return parts.join(' · ');
+/** One end of the effectivity: its date and/or unit, joined by ` · ` when a relation has both; empty when open. */
+export function formatEffEnd(eff: Effectivity, end: 'from' | 'to'): string {
+  const [date, unit] = end === 'from' ? [eff.dateFrom, eff.unitFrom] : [eff.dateTo, eff.unitTo];
+  return [date, unit?.toString()].filter(Boolean).join(' · ');
 }
