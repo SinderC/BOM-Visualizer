@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, removeBom, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelation, createDocument, moveRelation, moveRelations, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
+import { addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, removeBom, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelation, createDocument, moveRelation, moveRelations, sortedChildren, nextId, parseQty, parseUnit, moveFamily, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -242,6 +242,17 @@ describe('model', () => {
     expect(doc.families[0].values).toEqual(['A', 'B']);
     removeFamily(doc, 'FAMILY2');
     expect(doc.families.map((f) => f.name)).toEqual(['FAMILY3']);
+  });
+
+  it('moves variant families up and down, not past either end', () => {
+    const doc = createDocument();
+    for (const name of ['A', 'B', 'C']) addFamily(doc, name);
+    moveFamily(doc, 'C', -1);
+    moveFamily(doc, 'A', 1);
+    expect(doc.families.map((f) => f.name)).toEqual(['C', 'A', 'B']);
+    moveFamily(doc, 'C', -1);
+    moveFamily(doc, 'B', 1);
+    expect(doc.families.map((f) => f.name)).toEqual(['C', 'A', 'B']);
   });
 
   it('rejects double quotes in family names and values, also on load', () => {

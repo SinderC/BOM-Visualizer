@@ -6,6 +6,7 @@ import {
   BOM_TYPES,
   itemTypeUsage,
   migrateItemType,
+  moveFamily,
   removeBom,
   removeFamily,
   removeItemType,
@@ -217,7 +218,14 @@ export function showVariantFamiliesDialog(app: App): void {
           removeFamily(doc, f.name);
           delete ctx.options[f.name];
         });
-      return [name, values, button({ className: 'icon danger', title: `Remove ${f.name}` }, remove, '✕')];
+      // Named by family, so focus follows the family as it moves.
+      const move = (step: -1 | 1, label: string, glyph: string) =>
+        button(
+          { name: `fam-move-${step}-${f.name}`, className: 'icon', title: `Move ${f.name} ${label}`, disabled: !doc.families[i + step] },
+          () => update(() => moveFamily(doc, f.name, step)),
+          glyph,
+        );
+      return [name, values, move(-1, 'up', '↑'), move(1, 'down', '↓'), button({ className: 'icon danger', title: `Remove ${f.name}` }, remove, '✕')];
     });
     const newName = h('input', { name: 'new-family', className: 'mono', placeholder: 'New family' });
     const newValues = h('input', { name: 'new-values', className: 'mono', placeholder: 'Values, comma-separated' });

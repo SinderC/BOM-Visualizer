@@ -331,6 +331,14 @@ export function setFamilyValues(doc: BomDocument, name: string, values: string[]
   return renames;
 }
 
+/** Moves a family one place up (-1) or down (+1); the configuration panel lists families in this order. */
+export function moveFamily(doc: BomDocument, name: string, step: -1 | 1): void {
+  const from = doc.families.indexOf(getFamily(doc, name));
+  const to = from + step;
+  if (to < 0 || to >= doc.families.length) return;
+  [doc.families[from], doc.families[to]] = [doc.families[to], doc.families[from]];
+}
+
 export function removeFamily(doc: BomDocument, name: string): void {
   doc.families = doc.families.filter((f) => f.name !== name);
 }
