@@ -274,17 +274,30 @@ function getFamily(doc: BomDocument, name: string): OptionFamily {
   return family;
 }
 
-/** Adds an empty family named `FAMILY<n>` with the first free n. */
-export function addFamily(doc: BomDocument): OptionFamily {
-  let n = doc.families.length + 1;
-  while (doc.families.some((f) => f.name === `FAMILY${n}`)) n++;
-  const family = { name: `FAMILY${n}`, values: [] };
+/** Variant expressions quote names, so a family or value name cannot contain a double quote. */
+const hasQuote = (names: string[]) => names.some((n) => n.includes('"'));
+
+/** Throws unless `name` can name `family` (or a new family): not empty, not used by another family, no quote. */
+function checkFamilyName(doc: BomDocument, name: string, family?: OptionFamily): void {
+  if (!name || doc.families.some((f) => f !== family && f.name === name)) {
+    throw new Error(`Family name '${name}' is empty or already used`);
+  }
+  if (hasQuote([name])) throw new Error(`Family name '${name}' cannot contain '"'`);
+}
+
+/** Values trimmed, without blanks or duplicates. Throws on a quote. */
+function familyValues(name: string, values: string[]): string[] {
+  const out = [...new Set(values.map((v) => v.trim()).filter(Boolean))];
+  if (hasQuote(out)) throw new Error(`Values of ${name} cannot contain '"'`);
+  return out;
+}
+
+export function addFamily(doc: BomDocument, name: string, values: string[] = []): OptionFamily {
+  checkFamilyName(doc, name);
+  const family = { name, values: familyValues(name, values) };
   doc.families.push(family);
   return family;
 }
-
-/** Variant expressions quote names, so a family or value name cannot contain a double quote. */
-const hasQuote = (names: string[]) => names.some((n) => n.includes('"'));
 
 /** Applies `rewrite` to every relation's variant expression in all BOMs. */
 function rewriteExprs(doc: BomDocument, rewrite: (expr: string) => string): void {
@@ -294,10 +307,7 @@ function rewriteExprs(doc: BomDocument, rewrite: (expr: string) => string): void
 /** Renames a family and updates the variant expressions that use it. */
 export function renameFamily(doc: BomDocument, oldName: string, newName: string): void {
   const family = getFamily(doc, oldName);
-  if (!newName || doc.families.some((f) => f !== family && f.name === newName)) {
-    throw new Error(`Family name '${newName}' is empty or already used`);
-  }
-  if (hasQuote([newName])) throw new Error(`Family name '${newName}' cannot contain '"'`);
+  checkFamilyName(doc, newName, family);
   rewriteExprs(doc, (e) => renameFamilyInExpr(e, oldName, newName));
   family.name = newName;
 }
@@ -308,8 +318,7 @@ export function renameFamily(doc: BomDocument, oldName: string, newName: string)
  */
 export function setFamilyValues(doc: BomDocument, name: string, values: string[]): Map<string, string> {
   const family = getFamily(doc, name);
-  const next = [...new Set(values.map((v) => v.trim()).filter(Boolean))];
-  if (hasQuote(next)) throw new Error(`Values of ${name} cannot contain '"'`);
+  const next = familyValues(name, values);
   const renames = new Map<string, string>();
   if (next.length === family.values.length) {
     // A value moved to another position is a reorder, not a rename.

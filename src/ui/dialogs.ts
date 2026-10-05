@@ -77,10 +77,20 @@ function showEditDialog(app: App, title: string, content: (update: (mutate: () =
   dialog.showModal();
 }
 
-/** Rows of an edit dialog in one grid, so the columns line up although the add row has no count or remove button. */
-function listGrid(rows: HTMLElement[][], addFields: HTMLElement[], onAdd: () => void): HTMLElement {
+/**
+ * Rows of an edit dialog in one grid, so the columns line up although the add row has no count or remove button: Add
+ * spans the columns after the add fields. `className` sets the columns where the default does not fit.
+ */
+function listGrid(rows: HTMLElement[][], addFields: HTMLElement[], onAdd: () => void, className = ''): HTMLElement {
   const row = (cells: HTMLElement[]) => h('div', { className: 'list-row' }, ...cells);
-  return h('div', { className: 'list-grid' }, ...rows.map(row), row([...addFields, button({ type: 'button', className: 'add' }, onAdd, 'Add')]));
+  const add = button({ type: 'button', className: 'add' }, onAdd, 'Add');
+  add.style.gridColumn = `${addFields.length + 1} / -1`;
+  for (const el of addFields) {
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && el instanceof HTMLInputElement) onAdd();
+    });
+  }
+  return h('div', { className: `list-grid ${className}` }, ...rows.map(row), row([...addFields, add]));
 }
 
 export function showItemTypesDialog(app: App): void {
@@ -100,11 +110,6 @@ export function showItemTypesDialog(app: App): void {
     const newName = h('input', { name: 'new-type', placeholder: 'New type' });
     const newPrefix = h('input', { name: 'new-prefix', ...PREFIX });
     const add = () => newName.value.trim() && update(() => addItemType(doc, newName.value, newPrefix.value));
-    for (const el of [newName, newPrefix]) {
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') add();
-      });
-    }
     const grid = listGrid(rows, [newName, newPrefix], add);
     if (doc.itemTypes.length < 2) return [grid];
 
@@ -174,9 +179,6 @@ export function showStructureTypesDialog(app: App): void {
     const newName = h('input', { name: 'new-bom', placeholder: 'New BOM' });
     const newType = bomTypeSelect('new-bom-type', BOM_TYPES[0]);
     const add = () => newName.value.trim() && update(() => addBom(doc, newName.value.trim(), newType.value as BomType));
-    newName.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') add();
-    });
     return [listGrid(rows, [newName, newType], add)];
   });
 }
@@ -215,11 +217,13 @@ export function showVariantFamiliesDialog(app: App): void {
           removeFamily(doc, f.name);
           delete ctx.options[f.name];
         });
-      return h('div', { className: 'family-row' }, name, values, button({ className: 'icon danger', title: `Remove ${f.name}` }, remove, '✕'));
+      return [name, values, button({ className: 'icon danger', title: `Remove ${f.name}` }, remove, '✕')];
     });
+    const newName = h('input', { name: 'new-family', className: 'mono', placeholder: 'New family' });
+    const newValues = h('input', { name: 'new-values', className: 'mono', placeholder: 'Values, comma-separated' });
+    const add = () => newName.value.trim() && update(() => addFamily(doc, newName.value.trim(), newValues.value.split(',')));
     return [
-      ...rows,
-      button({ type: 'button' }, () => update(() => addFamily(doc)), '+ Add family'),
+      listGrid(rows, [newName, newValues], add, 'family-grid'),
       h(
         'p',
         { className: 'muted' },

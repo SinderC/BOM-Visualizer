@@ -231,9 +231,11 @@ describe('model', () => {
 
   it('adds, renames, sets values of and removes variant families', () => {
     const doc = createDocument();
-    expect(addFamily(doc).name).toBe('FAMILY1');
+    expect(addFamily(doc, 'FAMILY1', [' X', 'Y', '', 'X'])).toEqual({ name: 'FAMILY1', values: ['X', 'Y'] });
     renameFamily(doc, 'FAMILY1', 'FAMILY2');
-    expect(addFamily(doc).name).toBe('FAMILY3');
+    addFamily(doc, 'FAMILY3');
+    expect(() => addFamily(doc, 'FAMILY3')).toThrow(/already used/);
+    expect(() => addFamily(doc, '')).toThrow(/empty/);
     expect(() => renameFamily(doc, 'FAMILY3', 'FAMILY2')).toThrow(/already used/);
     expect(() => renameFamily(doc, 'FAMILY3', '')).toThrow(/empty/);
     setFamilyValues(doc, 'FAMILY2', [' A', 'B', '', 'A ']);
@@ -244,7 +246,10 @@ describe('model', () => {
 
   it('rejects double quotes in family names and values, also on load', () => {
     const doc = createDocument();
-    addFamily(doc);
+    addFamily(doc, 'FAMILY1');
+    expect(() => addFamily(doc, 'A"B')).toThrow(/cannot contain/);
+    expect(() => addFamily(doc, 'AB', ['X"'])).toThrow(/cannot contain/);
+    expect(doc.families.map((f) => f.name)).toEqual(['FAMILY1']);
     expect(() => renameFamily(doc, 'FAMILY1', 'A"B')).toThrow(/cannot contain/);
     expect(() => setFamilyValues(doc, 'FAMILY1', ['X', 'Y"'])).toThrow(/cannot contain/);
     doc.families[0].values = ['"V6"'];
