@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
+import { addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -31,10 +31,46 @@ describe('model', () => {
 
   it('prefixes new item ids by type', () => {
     const doc = createDocument();
-    expect(addItem(doc, 'Bolt', '', 'Part').id).toBe('P-1');
-    expect(addItem(doc, 'Frame', '', 'Assembly').id).toBe('A-1');
-    expect(addItem(doc, 'Nut', '', 'Part')).toMatchObject({ id: 'P-2', type: 'Part' });
+    addItemType(doc, 'Tool');
+    expect(addItem(doc, 'Bolt', '', 'Part Revision').id).toBe('P-1');
+    expect(addItem(doc, 'Frame', '', 'Design Revision').id).toBe('D-1');
+    expect(addItem(doc, 'Nut', '', 'Part Revision')).toMatchObject({ id: 'P-2', type: 'Part Revision' });
+    expect(addItem(doc, 'Wrench', '', 'Tool').id).toBe('1'); // no prefix
     expect(addItem(doc, 'Thing').id).toBe('I2'); // I1 is the BOM root
+  });
+
+  it('locks the type prefix of item ids that start with it', () => {
+    const doc = createDocument();
+    const bolt = addItem(doc, 'Bolt', '', 'Part Revision');
+    expect(lockedIdPrefix(doc, bolt)).toBe('P-');
+    renameItem(doc, bolt.id, 'X1');
+    expect(lockedIdPrefix(doc, bolt)).toBe('');
+    expect(lockedIdPrefix(doc, doc.items.get('I1')!)).toBe(''); // untyped
+  });
+
+  it('swaps the id prefix when an item changes type', () => {
+    const doc = createDocument();
+    const bolt = addItem(doc, 'Bolt', '', 'Part Revision');
+    addItem(doc, 'Frame', '', 'Design Revision');
+    setItemType(doc, bolt.id, 'Design Revision');
+    expect(bolt).toMatchObject({ id: 'D-2', type: 'Design Revision' }); // D-1 is taken
+    setItemType(doc, bolt.id, 'Part Revision');
+    expect(bolt.id).toBe('P-2');
+    setItemType(doc, bolt.id, undefined);
+    expect(bolt.id).toBe('I2');
+  });
+
+  it('renames the ids of all items of a type when its prefix changes', () => {
+    const { doc, bom, root } = setup();
+    const bolt = addItem(doc, 'Bolt', '', 'Part Revision');
+    const nut = addItem(doc, 'Nut', '', 'Part Revision');
+    const rel = addRelation(doc, bom, root, bolt.id);
+    setItemTypePrefix(doc, 'Part Revision', ' PR ');
+    expect([bolt.id, nut.id]).toEqual(['PR1', 'PR2']);
+    expect(rel.childId).toBe('PR1');
+    setItemTypePrefix(doc, 'Part Revision', '');
+    expect([bolt.id, nut.id]).toEqual(['1', '2']);
+    expect(() => setItemTypePrefix(doc, 'Part Revision', 'P R')).toThrow(/no spaces/);
   });
 
   it('assigns increasing find numbers', () => {
@@ -139,24 +175,25 @@ describe('model', () => {
     const { doc, a } = setup();
     expect(addItemType(doc, ' Tool ')).toBe('Tool');
     addItemType(doc, 'Tool');
-    expect(doc.itemTypes.filter((t) => t === 'Tool')).toHaveLength(1);
+    expect(doc.itemTypes.filter((t) => t.name === 'Tool')).toEqual([{ name: 'Tool', prefix: '' }]);
+    expect(() => addItemType(doc, 'Jig', 'J -')).toThrow(/no spaces/);
     a.type = 'Nope';
     expect(validateDocument(doc)).toContain(`Item ${a.id}: unknown type 'Nope'`);
   });
 
   it('renames item types on items and removes only unused ones', () => {
     const { doc, a } = setup();
-    expect(doc.itemTypes).toEqual(['Part Revision', 'Design Revision']);
+    expect(doc.itemTypes.map((t) => t.name)).toEqual(['Part Revision', 'Design Revision']);
     a.type = 'Part Revision';
     expect(itemTypeUsage(doc, 'Part Revision')).toBe(1);
     renameItemType(doc, 'Part Revision', ' Component ');
-    expect(doc.itemTypes[0]).toBe('Component');
+    expect(doc.itemTypes[0]).toEqual({ name: 'Component', prefix: 'P-' });
     expect(a.type).toBe('Component');
     expect(() => renameItemType(doc, 'Component', '')).toThrow(/empty or already used/);
     expect(() => renameItemType(doc, 'Component', 'Design Revision')).toThrow(/empty or already used/);
     expect(() => removeItemType(doc, 'Component')).toThrow(/used by 1 items/);
     removeItemType(doc, 'Design Revision');
-    expect(doc.itemTypes).toEqual(['Component']);
+    expect(doc.itemTypes.map((t) => t.name)).toEqual(['Component']);
   });
 
   it('adds, renames, sets values of and removes variant families', () => {

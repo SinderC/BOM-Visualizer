@@ -9,7 +9,12 @@ export interface Item {
   id: string;
   name: string;
   description: string;
-  type?: string; // one of BomDocument.itemTypes
+  type?: string; // name of one of BomDocument.itemTypes
+}
+
+export interface ItemType {
+  name: string;
+  prefix: string; // start of the ids of items of this type; '' gives bare numbers
 }
 
 /** Parent→child usage within one BOM. Variant and effectivity live here, not on the item. */
@@ -47,10 +52,13 @@ export interface Alignment {
 }
 
 /** Starting list for new documents and for files written before item types existed. */
-export const DEFAULT_ITEM_TYPES = ['Part Revision', 'Design Revision'];
+export const DEFAULT_ITEM_TYPES: readonly ItemType[] = [
+  { name: 'Part Revision', prefix: 'P-' },
+  { name: 'Design Revision', prefix: 'D-' },
+];
 
 export interface BomDocument {
-  itemTypes: string[];
+  itemTypes: ItemType[];
   items: Map<string, Item>;
   families: OptionFamily[];
   boms: Bom[];
@@ -86,7 +94,7 @@ export function isOccurrence(doc: BomDocument, address: string): boolean {
 }
 
 export function createDocument(): BomDocument {
-  const doc: BomDocument = { itemTypes: [...DEFAULT_ITEM_TYPES], items: new Map(), families: [], boms: [], alignments: [] };
+  const doc: BomDocument = { itemTypes: DEFAULT_ITEM_TYPES.map((t) => ({ ...t })), items: new Map(), families: [], boms: [], alignments: [] };
   addBom(doc, 'Main', 'EBOM');
   return doc;
 }
@@ -129,13 +137,19 @@ export function sortedChildren(bom: Bom, itemId: string): Relation[] {
 
 const newRelationId = (doc: BomDocument) => nextId('R', allRelations(doc).map((r) => r.id));
 
-/** Id prefix from the type's first letter, e.g. `P-` for Part; `I` for untyped items. */
-function itemIdPrefix(type?: string): string {
-  return type ? `${type[0].toUpperCase()}-` : 'I';
+/** Id prefix of items of the type; `I` for untyped items. */
+function idPrefix(doc: BomDocument, type?: string): string {
+  return type === undefined ? 'I' : (findItemType(doc, type)?.prefix ?? '');
+}
+
+/** The start of the item's id that its type fixes, or '' when it is untyped or its id does not start with the prefix. */
+export function lockedIdPrefix(doc: BomDocument, item: Item): string {
+  const prefix = item.type === undefined ? '' : idPrefix(doc, item.type);
+  return item.id.startsWith(prefix) ? prefix : '';
 }
 
 export function addItem(doc: BomDocument, name: string, description = '', type?: string): Item {
-  const item = { id: nextId(itemIdPrefix(type), doc.items.keys()), name, description, type };
+  const item = { id: nextId(idPrefix(doc, type), doc.items.keys()), name, description, type };
   doc.items.set(item.id, item);
   return item;
 }
@@ -162,12 +176,50 @@ export function renameItem(doc: BomDocument, oldId: string, newId: string): void
   }
 }
 
-/** Adds a type to the document's item type list; returns the trimmed name. */
-export function addItemType(doc: BomDocument, name: string): string {
+/**
+ * Swaps the item's id prefix, keeping the rest of the id (P-12 → D-12), or prepends the new prefix when the id does not
+ * start with the old one. Takes the next free id when that one is used.
+ */
+function reprefixItem(doc: BomDocument, item: Item, oldPrefix: string, newPrefix: string): void {
+  const id = newPrefix + (item.id.startsWith(oldPrefix) ? item.id.slice(oldPrefix.length) : item.id);
+  if (id === item.id) return;
+  renameItem(doc, item.id, id && !doc.items.has(id) ? id : nextId(newPrefix, doc.items.keys()));
+}
+
+/** Changes the item's type and swaps its id prefix to match. */
+export function setItemType(doc: BomDocument, id: string, type: string | undefined): void {
+  const item = doc.items.get(id);
+  if (!item) return;
+  const oldPrefix = idPrefix(doc, item.type);
+  item.type = type;
+  reprefixItem(doc, item, oldPrefix, idPrefix(doc, type));
+}
+
+function findItemType(doc: BomDocument, name: string): ItemType | undefined {
+  return doc.itemTypes.find((t) => t.name === name);
+}
+
+function checkPrefix(prefix: string): string {
+  const p = prefix.trim();
+  if (/\s/.test(p)) throw new Error('ID prefix must contain no spaces');
+  return p;
+}
+
+/** Adds a type to the document's item type list unless one has that name; returns the trimmed name. */
+export function addItemType(doc: BomDocument, name: string, prefix = ''): string {
   const type = name.trim();
   if (!type) throw new Error('Type name is empty');
-  if (!doc.itemTypes.includes(type)) doc.itemTypes.push(type);
+  if (!findItemType(doc, type)) doc.itemTypes.push({ name: type, prefix: checkPrefix(prefix) });
   return type;
+}
+
+/** Sets a type's id prefix and swaps it on the ids of all items of that type. */
+export function setItemTypePrefix(doc: BomDocument, name: string, prefix: string): void {
+  const type = findItemType(doc, name);
+  if (!type) throw new Error(`Unknown item type ${name}`);
+  const oldPrefix = type.prefix;
+  type.prefix = checkPrefix(prefix);
+  for (const item of [...doc.items.values()]) if (item.type === name) reprefixItem(doc, item, oldPrefix, type.prefix);
 }
 
 /** Number of items of the given type. */
@@ -178,15 +230,15 @@ export function itemTypeUsage(doc: BomDocument, type: string): number {
 /** Renames a type in place and on every item of that type. Item ids keep their old prefix. */
 export function renameItemType(doc: BomDocument, oldName: string, newName: string): void {
   const type = newName.trim();
-  if (!type || (type !== oldName && doc.itemTypes.includes(type))) throw new Error(`Type name '${type}' is empty or already used`);
-  doc.itemTypes[doc.itemTypes.indexOf(oldName)] = type;
+  if (!type || (type !== oldName && findItemType(doc, type))) throw new Error(`Type name '${type}' is empty or already used`);
+  findItemType(doc, oldName)!.name = type;
   for (const item of doc.items.values()) if (item.type === oldName) item.type = type;
 }
 
 export function removeItemType(doc: BomDocument, name: string): void {
   const n = itemTypeUsage(doc, name);
   if (n) throw new Error(`Type ${name} is used by ${n} items`);
-  doc.itemTypes = doc.itemTypes.filter((t) => t !== name);
+  doc.itemTypes = doc.itemTypes.filter((t) => t.name !== name);
 }
 
 function getFamily(doc: BomDocument, name: string): OptionFamily {
@@ -375,7 +427,7 @@ export function validateDocument(doc: BomDocument): string[] {
   const relIds = new Set<string>();
   const bomIds = new Set<string>();
   for (const item of doc.items.values()) {
-    if (item.type && !doc.itemTypes.includes(item.type)) errors.push(`Item ${item.id}: unknown type '${item.type}'`);
+    if (item.type && !findItemType(doc, item.type)) errors.push(`Item ${item.id}: unknown type '${item.type}'`);
   }
   for (const bom of doc.boms) {
     if (bomIds.has(bom.id)) errors.push(`Duplicate BOM id ${bom.id}`);

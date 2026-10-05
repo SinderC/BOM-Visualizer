@@ -5,12 +5,14 @@ import {
   addItemType,
   addRelation,
   DEFAULT_ITEM_TYPES,
+  lockedIdPrefix,
   occurrencePath,
   parentAddress,
   parseQty,
   parseUnit,
   removeRelation,
   renameItem,
+  setItemType,
   updateItem,
   updateRelation,
   usageCount,
@@ -39,20 +41,20 @@ export function typeSelect(app: App, name: string, value: string | undefined, on
     'select',
     { name },
     h('option', { value: '' }, '—'),
-    ...doc.itemTypes.map((t) => h('option', { value: t }, t)),
+    ...doc.itemTypes.map((t) => h('option', { value: t.name }, t.name)),
     h('option', { value: NEW_TYPE }, 'New type…'),
   );
   select.value = value ?? '';
   select.addEventListener('change', () => {
     if (select.value !== NEW_TYPE) return app.commit(() => onPick(select.value || undefined));
     select.value = value ?? ''; // stays correct if the dialog is cancelled
-    showNewItemTypeDialog((type) => app.commit(() => onPick(addItemType(doc, type))));
+    showNewItemTypeDialog((type, prefix) => app.tryCommit(() => onPick(addItemType(doc, type, prefix))));
   });
   return select;
 }
 
 /** Type for new children; remembered across renders so consecutive adds keep the last choice. */
-let addChildType: string | undefined = DEFAULT_ITEM_TYPES[0];
+let addChildType: string | undefined = DEFAULT_ITEM_TYPES[0].name;
 
 export function renderEditor(container: HTMLElement, app: App): void {
   const occ = app.occurrence(app.state.selected);
@@ -77,13 +79,16 @@ function itemSection(app: App, occ: Occurrence): HTMLElement[] {
   const description = h('textarea', { name: 'item-desc', value: item.description, rows: 2 });
   description.addEventListener('change', () => app.commit(() => updateItem(doc, item.id, { description: description.value })));
 
-  const id = input('item-id', item.id, (v) => app.tryCommit(() => renameItem(doc, item.id, v)), MONO);
+  // The type's prefix is shown beside the field and only the rest of the id is editable.
+  const prefix = lockedIdPrefix(doc, item);
+  const id = input('item-id', item.id.slice(prefix.length), (v) => app.tryCommit(() => renameItem(doc, item.id, prefix + v)), MONO);
+  const idControl = prefix ? h('div', { className: 'id-input' }, h('span', { className: 'mono muted' }, prefix), id) : id;
 
-  const type = typeSelect(app, 'item-type', item.type, (t) => updateItem(doc, item.id, { type: t }));
+  const type = typeSelect(app, 'item-type', item.type, (t) => setItemType(doc, item.id, t));
 
   return [
     h('h3', {}, 'Item'),
-    h('div', { className: 'row' }, field('ID', id), field('Type', type)),
+    h('div', { className: 'row' }, field('ID', idControl), field('Type', type)),
     field('Name', input('item-name', item.name, (v) => app.commit(() => updateItem(doc, item.id, { name: v || item.name })))),
     field('Description', description),
     h('p', { className: 'muted' }, `Used by ${uses} relation${uses === 1 ? '' : 's'} across all BOMs; item edits apply everywhere.`),
@@ -146,7 +151,7 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
     ...[...doc.items.values()].map((i) => h('option', { value: i.id }, `${i.id} ${i.name}`)),
   );
   const name = h('input', { name: 'add-name', placeholder: 'New item name' });
-  if (addChildType && !doc.itemTypes.includes(addChildType)) addChildType = undefined;
+  if (addChildType && !doc.itemTypes.some((t) => t.name === addChildType)) addChildType = undefined;
   const type = typeSelect(app, 'add-type', addChildType, (t) => (addChildType = t));
   type.title = 'Type of the new item; also sets its ID prefix';
   existing.addEventListener('change', () => (name.disabled = type.disabled = !!existing.value));

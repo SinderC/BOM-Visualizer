@@ -1,7 +1,7 @@
 import { activeBom, openDoc, type App } from '../app';
 import { formatEff } from '../effectivity';
 import { validate } from '../expr';
-import { copyRelation, moveRelation, occurrencePath, parentAddress, parseQty, renameItem, updateItem, updateRelation } from '../model';
+import { copyRelation, lockedIdPrefix, moveRelation, occurrencePath, parentAddress, parseQty, renameItem, setItemType, updateItem, updateRelation } from '../model';
 import type { Occurrence } from '../resolve';
 import { h } from './dom';
 import { typeSelect } from './editor';
@@ -88,18 +88,21 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
     };
 
     if (col === 'type') {
-      const picker = typeSelect(app, '', occ.item.type, (t) => updateItem(openDoc(app.state), occ.item.id, { type: t }));
+      const picker = typeSelect(app, '', occ.item.type, (t) => setItemType(openDoc(app.state), occ.item.id, t));
       picker.addEventListener('keydown', (ke) => keydown(ke));
       picker.addEventListener('change', done);
       picker.addEventListener('blur', () => app.commit()); // restores the cell when nothing was picked
       return edit(host, picker, width);
     }
 
-    const field = h('input', { className: 'mono', value: host.textContent ?? '', spellcheck: false });
+    // An item id's type prefix stays fixed; only the rest is edited.
+    const prefix = col === 'id' ? lockedIdPrefix(openDoc(app.state), occ.item) : '';
+    const field = h('input', { className: 'mono', value: (host.textContent ?? '').slice(prefix.length), spellcheck: false });
     let cancelled = false;
     field.addEventListener('keydown', (ke) => keydown(ke, () => (cancelled = true)));
-    field.addEventListener('blur', () => (cancelled ? app.commit() : app.tryCommit(() => save(field.value.trim()))));
+    field.addEventListener('blur', () => (cancelled ? app.commit() : app.tryCommit(() => save(prefix + field.value.trim()))));
     edit(host, field, width);
+    if (prefix) host.prepend(h('span', { className: 'muted id-prefix' }, prefix));
     field.select();
   }
 

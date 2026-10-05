@@ -1,4 +1,4 @@
-import { BOM_TYPES, DEFAULT_ITEM_TYPES, isUnit, validateDocument, type Bom, type BomType, type BomDocument, type Effectivity, type Relation } from './model';
+import { BOM_TYPES, DEFAULT_ITEM_TYPES, isUnit, validateDocument, type Bom, type BomType, type BomDocument, type Effectivity, type ItemType, type Relation } from './model';
 
 const FORMAT_VERSION = 1;
 
@@ -14,7 +14,7 @@ export function parseXml(text: string): BomDocument {
   }
 
   const typeList = kids(root, 'itemTypes')[0];
-  const itemTypes = typeList ? kids(typeList, 'type').map((t) => t.textContent?.trim() ?? '') : [...DEFAULT_ITEM_TYPES];
+  const itemTypes = typeList ? kids(typeList, 'type').map(parseItemType) : DEFAULT_ITEM_TYPES.map((t) => ({ ...t }));
   const doc: BomDocument = { itemTypes, items: new Map(), families: [], boms: [], alignments: [] };
 
   for (const f of path(root, 'optionFamilies', 'family')) {
@@ -46,6 +46,12 @@ export function parseXml(text: string): BomDocument {
   const errors = validateDocument(doc);
   if (errors.length) throw new Error(errors.join('\n'));
   return doc;
+}
+
+/** Files written before prefixes existed get the first letter of the name and a dash, as ids were generated then. */
+function parseItemType(t: Element): ItemType {
+  const name = t.textContent?.trim() ?? '';
+  return { name, prefix: t.getAttribute('prefix') ?? `${name.charAt(0).toUpperCase()}-` };
 }
 
 function parseRelation(r: Element): Relation {
@@ -100,7 +106,8 @@ export function serializeXml(doc: BomDocument): string {
     out.push(`    <family${attrs({ name: f.name })}>${f.values.map((v) => `<value>${esc(v)}</value>`).join('')}</family>`);
   }
   out.push('  </optionFamilies>', '  <itemTypes>');
-  for (const t of doc.itemTypes) out.push(`    <type>${esc(t)}</type>`);
+  // prefix is always written, so that an empty one is not read back as missing from an older file
+  for (const t of doc.itemTypes) out.push(`    <type prefix="${esc(t.prefix)}">${esc(t.name)}</type>`);
   out.push('  </itemTypes>', '  <items>');
   for (const i of doc.items.values()) {
     out.push(`    <item${attrs({ id: i.id, type: i.type, name: i.name, description: i.description })}/>`);

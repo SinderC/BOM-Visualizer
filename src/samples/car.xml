@@ -6,9 +6,9 @@
     <family name="TRIM"><value>BASE</value><value>SPORT</value></family>
   </optionFamilies>
   <itemTypes>
-    <type>Part</type>
-    <type>Assembly</type>
-    <type>Station</type>
+    <type prefix="P-">Part</type>
+    <type prefix="A-">Assembly</type>
+    <type prefix="S-">Station</type>
   </itemTypes>
   <items>
     <item id="A-1" type="Assembly" name="Car" description="Concept vehicle"/>

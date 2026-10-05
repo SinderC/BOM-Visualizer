@@ -38,6 +38,11 @@ describe('xml', () => {
   it('reads item types and falls back to defaults for older files', () => {
     const doc = parseXml(sample);
     expect(doc.items.get('S-1')!.type).toBe('Station');
+    expect(doc.itemTypes[2]).toEqual({ name: 'Station', prefix: 'S-' });
+    const unprefixed = parseXml(sample.replace(/ prefix="[^"]*"/g, ''));
+    expect(unprefixed.itemTypes[0]).toEqual({ name: 'Part', prefix: 'P-' }); // first letter, as ids were generated then
+    doc.itemTypes[0].prefix = '';
+    expect(parseXml(serializeXml(doc)).itemTypes[0].prefix).toBe('');
     const old = sample.replace(/<itemTypes>[\s\S]*<\/itemTypes>/, '').replace(/ type="(Part|Assembly|Station)"/g, '');
     const legacy = parseXml(old);
     expect(legacy.itemTypes).toEqual(DEFAULT_ITEM_TYPES);
@@ -55,7 +60,7 @@ describe('xml', () => {
     expect(() => parseXml(sample.replace('unitFrom="100"', 'unitFrom="0"'))).toThrow(/unitFrom must be a whole number of 1 or more/);
     expect(() => parseXml(sample.replace('version="1"', 'version="2"'))).toThrow(/version 2/);
     expect(() => parseXml(sample.replace('type="EBOM"', 'type="XBOM"'))).toThrow(/unknown type 'XBOM'/);
-    expect(() => parseXml(sample.replace('<type>Station</type>', ''))).toThrow(/unknown type 'Station'/);
+    expect(() => parseXml(sample.replace('<type prefix="S-">Station</type>', ''))).toThrow(/unknown type 'Station'/);
     expect(() => parseXml(sample.replace('id="R2"', 'id="R1"'))).toThrow(/Duplicate relation id R1/);
     expect(() => parseXml(sample.replace('child="A-5"', 'child="I99"'))).toThrow(/I99 does not exist/);
     expect(() => parseXml(sample.replace('parent="P-5" child="P-8"', 'parent="P-5" child="A-1"'))).toThrow(/cycle/);

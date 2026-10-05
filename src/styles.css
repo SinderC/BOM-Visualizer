@@ -196,6 +196,9 @@ button.icon { padding: 4px 8px; flex: 0 0 auto; }
 .type-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .type-row input { flex: 1; min-width: 0; }
 .type-row .muted { width: 56px; text-align: right; }
+.type-row input.prefix { flex: 0 0 80px; }
+.id-input { display: flex; align-items: center; gap: 2px; }
+.id-input input { flex: 1; min-width: 0; }
 
 .errors { color: var(--danger); margin: -4px 0 6px; padding-left: 18px; font-size: 12px; }
 .errors:empty { display: none; }
@@ -246,6 +249,7 @@ body.no-doc #tree .placeholder { display: block; }
 .tree-table td.expr > span { display: inline-block; max-width: 48ch; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 .tree-table td.eff { color: var(--eff); }
 .tree-table .cell-edit { margin: -3px -5px; padding: 2px 4px; text-align: inherit; max-width: none; }
+.tree-table .id-prefix { margin-right: 6px; }
 .tree-table tr:not(.st-included) td { opacity: var(--excluded); }
 .tree-table tr:not(.st-included) td.name > span:nth-child(2) { text-decoration: line-through; }
 

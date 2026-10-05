@@ -9,6 +9,7 @@ import {
   renameFamily,
   renameItemType,
   setFamilyValues,
+  setItemTypePrefix,
   type BomType,
 } from '../model';
 import { button, field, h, input } from './dom';
@@ -43,10 +44,13 @@ export function showNewBomDialog(onCreate: (name: string, type: BomType) => void
   );
 }
 
-/** Asks for the name of a new item type. */
-export function showNewItemTypeDialog(onCreate: (name: string) => void): void {
+const PREFIX = { className: 'mono prefix', placeholder: 'ID prefix', pattern: '\\s*\\S*\\s*', title: 'Optional start of the IDs of items of this type' };
+
+/** Asks for the name and optional ID prefix of a new item type. */
+export function showNewItemTypeDialog(onCreate: (name: string, prefix: string) => void): void {
   const name = requiredText();
-  showFormDialog('Add item type', 'Add', [field('Name', name)], () => onCreate(name.value));
+  const prefix = h('input', { name: 'prefix', ...PREFIX });
+  showFormDialog('Add item type', 'Add', [field('Name', name), field('ID prefix (optional)', prefix)], () => onCreate(name.value, prefix.value));
 }
 
 /**
@@ -82,18 +86,25 @@ export function showItemTypesDialog(app: App): void {
   showEditDialog(app, 'Item types', (update) => {
     const doc = openDoc(app.state);
     const rows = doc.itemTypes.map((t, i) => {
-      const n = itemTypeUsage(doc, t);
-      const name = input(`type-${i}-name`, t, (v) => update(() => renameItemType(doc, t, v)), { title: 'Type name' });
-      const title = n ? `Used by ${n} items` : `Remove ${t}`;
-      const remove = button({ className: 'icon danger', title, disabled: n > 0 }, () => update(() => removeItemType(doc, t)), '✕');
-      return h('div', { className: 'type-row' }, name, h('span', { className: 'muted' }, `${n} items`), remove);
+      const n = itemTypeUsage(doc, t.name);
+      const name = input(`type-${i}-name`, t.name, (v) => update(() => renameItemType(doc, t.name, v)), { title: 'Type name' });
+      const prefix = input(`type-${i}-prefix`, t.prefix, (v) => update(() => setItemTypePrefix(doc, t.name, v)), {
+        ...PREFIX,
+        title: 'Start of the IDs of items of this type; changing it renames their IDs',
+      });
+      const title = n ? `Used by ${n} items` : `Remove ${t.name}`;
+      const remove = button({ className: 'icon danger', title, disabled: n > 0 }, () => update(() => removeItemType(doc, t.name)), '✕');
+      return h('div', { className: 'type-row' }, name, prefix, h('span', { className: 'muted' }, `${n} items`), remove);
     });
     const newName = h('input', { name: 'new-type', placeholder: 'New type' });
-    const add = () => newName.value.trim() && update(() => addItemType(doc, newName.value));
-    newName.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') add();
-    });
-    return [...rows, h('div', { className: 'type-row' }, newName, button({ type: 'button' }, add, 'Add'))];
+    const newPrefix = h('input', { name: 'new-prefix', ...PREFIX });
+    const add = () => newName.value.trim() && update(() => addItemType(doc, newName.value, newPrefix.value));
+    for (const el of [newName, newPrefix]) {
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') add();
+      });
+    }
+    return [...rows, h('div', { className: 'type-row' }, newName, newPrefix, button({ type: 'button' }, add, 'Add'))];
   });
 }
 
