@@ -176,14 +176,26 @@ export function renameItem(doc: BomDocument, oldId: string, newId: string): void
   }
 }
 
+/** The id with the new prefix in place of the old one (P-12 → D-12), or in front when the id does not start with the old one. */
+const swapPrefix = (id: string, oldPrefix: string, newPrefix: string) =>
+  newPrefix + (id.startsWith(oldPrefix) ? id.slice(oldPrefix.length) : id);
+
 /**
- * Swaps the item's id prefix, keeping the rest of the id (P-12 → D-12), or prepends the new prefix when the id does not
- * start with the old one. Takes the next free id when that one is used.
+ * Swaps the id prefix of the items; one whose new id is used takes the next free id instead. Items whose new id is free
+ * go first, so that a renumbered item does not take it. Returns how many items were renumbered.
  */
-function reprefixItem(doc: BomDocument, item: Item, oldPrefix: string, newPrefix: string): void {
-  const id = newPrefix + (item.id.startsWith(oldPrefix) ? item.id.slice(oldPrefix.length) : item.id);
-  if (id === item.id) return;
-  renameItem(doc, item.id, id && !doc.items.has(id) ? id : nextId(newPrefix, doc.items.keys()));
+function reprefixItems(doc: BomDocument, items: Item[], oldPrefix: string, newPrefix: string): number {
+  const isTaken = (id: string) => !id || doc.items.has(id);
+  const fits = items.filter((i) => !isTaken(swapPrefix(i.id, oldPrefix, newPrefix)));
+  let renumbered = 0;
+  for (const item of new Set([...fits, ...items])) {
+    const id = swapPrefix(item.id, oldPrefix, newPrefix);
+    if (id === item.id) continue;
+    const taken = isTaken(id);
+    renameItem(doc, item.id, taken ? nextId(newPrefix, doc.items.keys()) : id);
+    if (taken) renumbered++;
+  }
+  return renumbered;
 }
 
 /** Changes the item's type and swaps its id prefix to match. */
@@ -192,7 +204,7 @@ export function setItemType(doc: BomDocument, id: string, type: string | undefin
   if (!item) return;
   const oldPrefix = idPrefix(doc, item.type);
   item.type = type;
-  reprefixItem(doc, item, oldPrefix, idPrefix(doc, type));
+  reprefixItems(doc, [item], oldPrefix, idPrefix(doc, type));
 }
 
 function findItemType(doc: BomDocument, name: string): ItemType | undefined {
@@ -219,7 +231,7 @@ export function setItemTypePrefix(doc: BomDocument, name: string, prefix: string
   if (!type) throw new Error(`Unknown item type ${name}`);
   const oldPrefix = type.prefix;
   type.prefix = checkPrefix(prefix);
-  for (const item of [...doc.items.values()]) if (item.type === name) reprefixItem(doc, item, oldPrefix, type.prefix);
+  reprefixItems(doc, [...doc.items.values()].filter((i) => i.type === name), oldPrefix, type.prefix);
 }
 
 /** Number of items of the given type. */
@@ -233,6 +245,19 @@ export function renameItemType(doc: BomDocument, oldName: string, newName: strin
   if (!type || (type !== oldName && findItemType(doc, type))) throw new Error(`Type name '${type}' is empty or already used`);
   findItemType(doc, oldName)!.name = type;
   for (const item of doc.items.values()) if (item.type === oldName) item.type = type;
+}
+
+/**
+ * Moves all items of one type to another, swapping their id prefixes, and removes the emptied type.
+ * Returns how many items got a new number because their id was taken.
+ */
+export function migrateItemType(doc: BomDocument, from: string, to: string): number {
+  if (from === to || !findItemType(doc, from) || !findItemType(doc, to)) throw new Error(`Cannot migrate ${from} to ${to}`);
+  const items = [...doc.items.values()].filter((i) => i.type === from);
+  for (const item of items) item.type = to;
+  const renumbered = reprefixItems(doc, items, idPrefix(doc, from), idPrefix(doc, to));
+  removeItemType(doc, from);
+  return renumbered;
 }
 
 export function removeItemType(doc: BomDocument, name: string): void {

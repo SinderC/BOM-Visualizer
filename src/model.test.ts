@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
+import { addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelation, createDocument, moveRelation, sortedChildren, nextId, parseQty, parseUnit, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -194,6 +194,17 @@ describe('model', () => {
     expect(() => removeItemType(doc, 'Component')).toThrow(/used by 1 items/);
     removeItemType(doc, 'Design Revision');
     expect(doc.itemTypes.map((t) => t.name)).toEqual(['Component']);
+  });
+
+  it('migrates items to another type, renumbering taken ids, and removes the old type', () => {
+    const doc = createDocument();
+    const p1 = addItem(doc, 'Bolt', '', 'Part Revision');
+    const p2 = addItem(doc, 'Nut', '', 'Part Revision');
+    addItem(doc, 'Frame', '', 'Design Revision'); // D-1
+    expect(migrateItemType(doc, 'Part Revision', 'Design Revision')).toBe(1); // D-1 is taken; Nut keeps its number
+    expect([p1, p2].map((i) => [i.id, i.type])).toEqual([['D-3', 'Design Revision'], ['D-2', 'Design Revision']]);
+    expect(doc.itemTypes.map((t) => t.name)).toEqual(['Design Revision']);
+    expect(() => migrateItemType(doc, 'Design Revision', 'Design Revision')).toThrow(/Cannot migrate/);
   });
 
   it('adds, renames, sets values of and removes variant families', () => {

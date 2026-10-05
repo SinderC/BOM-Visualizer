@@ -4,6 +4,7 @@ import {
   addItemType,
   BOM_TYPES,
   itemTypeUsage,
+  migrateItemType,
   removeFamily,
   removeItemType,
   renameFamily,
@@ -104,8 +105,35 @@ export function showItemTypesDialog(app: App): void {
         if (e.key === 'Enter') add();
       });
     }
-    return [...rows, h('div', { className: 'type-row' }, newName, newPrefix, button({ type: 'button' }, add, 'Add'))];
+    const out = [...rows, h('div', { className: 'type-row' }, newName, newPrefix, button({ type: 'button' }, add, 'Add'))];
+    if (doc.itemTypes.length < 2) return out;
+
+    const typeOptions = () => doc.itemTypes.map((t) => h('option', { value: t.name }, t.name));
+    const from = h('select', { name: 'migrate-from', title: 'Type to migrate and remove' }, ...typeOptions());
+    const to = h('select', { name: 'migrate-to', title: 'Type the items get' }, ...typeOptions());
+    to.selectedIndex = 1;
+    const migrate = () =>
+      from.value !== to.value && showMigrateItemTypeDialog(app, from.value, to.value, () => update(() => migrateItemType(doc, from.value, to.value)));
+    return [...out, h('div', { className: 'type-row migrate-row' }, h('span', {}, 'Migrate'), from, h('span', {}, '→'), to, button({ type: 'button' }, migrate, 'Migrate'))];
   });
+}
+
+/** Confirms moving all items of one type to another, with how many will need a new ID number. */
+function showMigrateItemTypeDialog(app: App, from: string, to: string, onConfirm: () => void): void {
+  const doc = openDoc(app.state);
+  const n = itemTypeUsage(doc, from);
+  const renumbered = migrateItemType(structuredClone(doc), from, to); // dry run
+  const prefix = doc.itemTypes.find((t) => t.name === to)!.prefix;
+  const ids = prefix ? `get the ID prefix ${prefix}` : 'lose their ID prefix';
+  showFormDialog(
+    'Migrate item type',
+    'Migrate',
+    [
+      h('p', {}, `${n} ${from} items become ${to} and ${ids}. The ${from} type is removed.`),
+      h('p', {}, `Items whose new ID is already in use get the next free number instead: ${renumbered} of ${n}.`),
+    ],
+    onConfirm,
+  );
 }
 
 export function showVariantFamiliesDialog(app: App): void {
