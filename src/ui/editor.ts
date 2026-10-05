@@ -19,7 +19,7 @@ import {
   type Relation,
 } from '../model';
 import type { Occurrence, Status } from '../resolve';
-import { showNewItemTypeDialog } from './dialogs';
+import { showConfirmDialog, showNewItemTypeDialog } from './dialogs';
 import { button, field, h, input } from './dom';
 
 const STATUS_TEXT: Record<Status, string> = {
@@ -178,7 +178,8 @@ function multiSection(app: App, focused: Occurrence): HTMLElement[] {
         app.state.selected = focused.relation ? parentAddress(focused.address) : focused.address;
         app.state.extraSelected = [];
       });
-    out.push(h('h3', {}, 'Structure'), button({ className: 'danger' }, remove, 'Remove from parent'));
+    const rows = `${relIds.length} row${relIds.length === 1 ? '' : 's'}`;
+    out.push(h('h3', {}, 'Structure'), removeButton(`Remove ${rows} from their parents?`, remove));
   }
   return out;
 }
@@ -219,7 +220,14 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
         removeRelation(doc, bom, relId);
         app.state.selected = parentAddress(occ.address);
       });
-    out.push(button({ className: 'danger' }, remove, 'Remove from parent'));
+    const parent = app.occurrence(parentAddress(occ.address))!.item.name;
+    out.push(removeButton(`Remove ${occ.item.name} from ${parent}?`, remove));
   }
   return out;
+}
+
+/** "Remove from parent" button that asks first; the rows' children go too where they are not used elsewhere in the BOM. */
+function removeButton(question: string, remove: () => void): HTMLButtonElement {
+  const confirm = () => showConfirmDialog('Remove from parent', `${question} Children are removed too unless used elsewhere in this BOM.`, 'Remove', remove);
+  return button({ className: 'danger' }, confirm, 'Remove from parent');
 }

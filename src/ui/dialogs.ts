@@ -15,16 +15,11 @@ import {
 } from '../model';
 import { button, field, h, input } from './dom';
 
-/** Modal form; `onSubmit` runs only when confirmed. */
+/** Modal form; `onSubmit` runs only when confirmed. Without a field to type in, Enter confirms. */
 function showFormDialog(title: string, submitLabel: string, fields: HTMLElement[], onSubmit: () => void): void {
   const cancel = h('button', { type: 'button' }, 'Cancel');
-  const form = h(
-    'form',
-    { method: 'dialog' },
-    h('h2', {}, title),
-    ...fields,
-    h('div', { className: 'dialog-actions' }, cancel, h('button', {}, submitLabel)),
-  );
+  const submit = h('button', {}, submitLabel);
+  const form = h('form', { method: 'dialog' }, h('h2', {}, title), ...fields, h('div', { className: 'dialog-actions' }, cancel, submit));
   const dialog = h('dialog', {}, form);
 
   cancel.addEventListener('click', () => dialog.close());
@@ -32,6 +27,12 @@ function showFormDialog(title: string, submitLabel: string, fields: HTMLElement[
   dialog.addEventListener('close', () => dialog.remove());
   document.body.append(dialog);
   dialog.showModal();
+  if (document.activeElement === cancel) submit.focus();
+}
+
+/** Asks to confirm an action; Enter confirms, Escape cancels. */
+export function showConfirmDialog(title: string, message: string, confirmLabel: string, onConfirm: () => void): void {
+  showFormDialog(title, confirmLabel, [h('p', {}, message)], onConfirm);
 }
 
 const requiredText = () => h('input', { name: 'name', required: true, pattern: '.*\\S.*' });
