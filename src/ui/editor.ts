@@ -21,6 +21,7 @@ import {
 import type { Occurrence, Status } from '../resolve';
 import { showConfirmDialog, showNewItemTypeDialog } from './dialogs';
 import { button, field, h, input } from './dom';
+import { attachExprCompletion } from './expr-complete';
 
 const STATUS_TEXT: Record<Status, string> = {
   included: 'Included',
@@ -116,6 +117,7 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
   const setEff = (patch: Partial<Relation['eff']>) => set({ eff: { ...rel.eff, ...patch } });
 
   const expr = h('textarea', { name: 'rel-variant', value: rel.variantExpr, rows: 3, className: 'mono', spellcheck: false });
+  attachExprCompletion(expr, () => openDoc(app.state).families);
   const errors = h('ul', { className: 'errors' });
   const showErrors = () =>
     errors.replaceChildren(
@@ -135,7 +137,7 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
     ),
     field('Variant expression', expr),
     errors,
-    h('p', { className: 'muted hint' }, 'e.g. ENGINE=V8 AND (MARKET=EU OR TRIM IN (BASE, SPORT)). Blank = always.'),
+    h('p', { className: 'muted hint' }, 'e.g. ENGINE=V8 AND (MARKET=EU OR TRIM IN (BASE, SPORT)), "Engine type"="V6 Turbo". Blank = always.'),
     h(
       'div',
       { className: 'row' },

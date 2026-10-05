@@ -61,10 +61,12 @@ Alignments refer to occurrences by this address.
 or      := and ('OR' and)*
 and     := not ('AND' not)*
 not     := 'NOT' not | primary
-primary := '(' or ')' | FAMILY ('=' | '!=') VALUE | FAMILY 'IN' '(' VALUE (',' VALUE)* ')'
+primary := '(' or ')' | NAME ('=' | '!=') NAME | NAME 'IN' '(' NAME (',' NAME)* ')'
+NAME    := [A-Za-z0-9_.-]+ | '"' any character except '"' '"'
 ```
 
 - Keywords are case-insensitive; family and value names are case-sensitive.
+- A family or value name with other characters, such as spaces, or one that is a keyword is written in double quotes: `"Engine type" = "V6 Turbo"`. Names cannot contain `"`.
 - An unset family matches no value: `ENGINE=V8` is false and `ENGINE!=V8` is true.
 
 ## Load-time checks

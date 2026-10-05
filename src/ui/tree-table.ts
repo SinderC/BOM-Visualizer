@@ -5,6 +5,7 @@ import { lockedIdPrefix, moveRelations, occurrencePath, parentAddress, parseQty,
 import { flatten, type Occurrence } from '../resolve';
 import { h } from './dom';
 import { typeSelect } from './editor';
+import { attachExprCompletion } from './expr-complete';
 import { COLUMNS, isColumnShown, isHideExcluded } from './view';
 
 const INDENT = 18;
@@ -134,6 +135,7 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
     // An item id's type prefix stays fixed; only the rest is edited.
     const prefix = col === 'id' ? lockedIdPrefix(openDoc(app.state), occ.item) : '';
     const field = h('input', { className: 'mono', value: (host.textContent ?? '').slice(prefix.length), spellcheck: false });
+    if (col === 'variant') attachExprCompletion(field, () => openDoc(app.state).families); // before keydown: it takes Enter/Tab/Esc while open
     let cancelled = false;
     field.addEventListener('keydown', (ke) => keydown(ke, () => (cancelled = true)));
     field.addEventListener('blur', () => (cancelled ? app.commit() : app.tryCommit(() => save(prefix + field.value.trim()))));

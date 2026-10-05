@@ -241,6 +241,37 @@ describe('model', () => {
     removeFamily(doc, 'FAMILY2');
     expect(doc.families.map((f) => f.name)).toEqual(['FAMILY3']);
   });
+
+  it('rejects double quotes in family names and values, also on load', () => {
+    const doc = createDocument();
+    addFamily(doc);
+    expect(() => renameFamily(doc, 'FAMILY1', 'A"B')).toThrow(/cannot contain/);
+    expect(() => setFamilyValues(doc, 'FAMILY1', ['X', 'Y"'])).toThrow(/cannot contain/);
+    doc.families[0].values = ['"V6"'];
+    expect(validateDocument(doc)).toEqual([`Variant family FAMILY1: names and values cannot contain '"'`]);
+  });
+
+  it('updates variant expressions in all BOMs when a family or value is renamed', () => {
+    const { doc, bom, a, b, root } = setup();
+    const other = addBom(doc, 'Other', 'MBOM', root);
+    doc.families.push({ name: 'ENGINE', values: ['V6', 'V8'] }, { name: 'MARKET', values: ['V6'] });
+    const r1 = addRelation(doc, bom, root, a.id);
+    const r2 = addRelation(doc, other, root, b.id);
+    r1.variantExpr = 'ENGINE=V6 AND MARKET=V6';
+    r2.variantExpr = 'ENGINE IN (V8, V6)';
+
+    renameFamily(doc, 'ENGINE', 'Engine type');
+    expect([r1.variantExpr, r2.variantExpr]).toEqual(['"Engine type"=V6 AND MARKET=V6', '"Engine type" IN (V8, V6)']);
+
+    expect(setFamilyValues(doc, 'Engine type', ['V6 Turbo', 'V8'])).toEqual(new Map([['V6', 'V6 Turbo']]));
+    expect([r1.variantExpr, r2.variantExpr]).toEqual(['"Engine type"="V6 Turbo" AND MARKET=V6', '"Engine type" IN (V8, "V6 Turbo")']);
+
+    // Reordering, adding or removing values renames nothing.
+    for (const values of [['V8', 'V6 Turbo'], ['V8', 'V6 Turbo', 'EV'], ['V8']]) {
+      expect(setFamilyValues(doc, 'Engine type', values).size).toBe(0);
+    }
+    expect(r2.variantExpr).toBe('"Engine type" IN (V8, "V6 Turbo")');
+  });
 });
 
 /** EBOM: root → A (R1) → B (R2); MBOM: root → B (R3). A1 links the two B occurrences. */

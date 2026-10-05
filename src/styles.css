@@ -292,3 +292,5 @@ body.aligning .align-view { display: grid; grid-template-columns: 1fr 80px 1fr; 
   #config-panel, #editor { border: 0; }
   body { height: auto; }
 }
+.completions { max-height: 240px; overflow-y: auto; font-family: var(--font-mono); }
+.completions button { flex-shrink: 0; }

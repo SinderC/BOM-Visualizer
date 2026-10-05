@@ -1,3 +1,5 @@
+import { renameFamilyInExpr, renameValueInExpr } from './expr';
+
 export interface Effectivity {
   dateFrom?: string; // ISO yyyy-mm-dd, inclusive
   dateTo?: string;
@@ -281,18 +283,43 @@ export function addFamily(doc: BomDocument): OptionFamily {
   return family;
 }
 
-/** Renames a family. Variant expressions that use the old name are not rewritten. */
+/** Variant expressions quote names, so a family or value name cannot contain a double quote. */
+const hasQuote = (names: string[]) => names.some((n) => n.includes('"'));
+
+/** Applies `rewrite` to every relation's variant expression in all BOMs. */
+function rewriteExprs(doc: BomDocument, rewrite: (expr: string) => string): void {
+  for (const bom of doc.boms) for (const r of bom.relations) r.variantExpr = rewrite(r.variantExpr);
+}
+
+/** Renames a family and updates the variant expressions that use it. */
 export function renameFamily(doc: BomDocument, oldName: string, newName: string): void {
   const family = getFamily(doc, oldName);
   if (!newName || doc.families.some((f) => f !== family && f.name === newName)) {
     throw new Error(`Family name '${newName}' is empty or already used`);
   }
+  if (hasQuote([newName])) throw new Error(`Family name '${newName}' cannot contain '"'`);
+  rewriteExprs(doc, (e) => renameFamilyInExpr(e, oldName, newName));
   family.name = newName;
 }
 
-/** Sets a family's values, trimmed, without blanks or duplicates. */
-export function setFamilyValues(doc: BomDocument, name: string, values: string[]): void {
-  getFamily(doc, name).values = [...new Set(values.map((v) => v.trim()).filter(Boolean))];
+/**
+ * Sets a family's values, trimmed, without blanks or duplicates. With the same number of values, a value replaced at
+ * its position by a new one is a rename: expressions that use it are updated. Returns the renames, old → new.
+ */
+export function setFamilyValues(doc: BomDocument, name: string, values: string[]): Map<string, string> {
+  const family = getFamily(doc, name);
+  const next = [...new Set(values.map((v) => v.trim()).filter(Boolean))];
+  if (hasQuote(next)) throw new Error(`Values of ${name} cannot contain '"'`);
+  const renames = new Map<string, string>();
+  if (next.length === family.values.length) {
+    // A value moved to another position is a reorder, not a rename.
+    family.values.forEach((old, i) => {
+      if (!next.includes(old) && !family.values.includes(next[i])) renames.set(old, next[i]);
+    });
+  }
+  for (const [from, to] of renames) rewriteExprs(doc, (e) => renameValueInExpr(e, name, from, to));
+  family.values = next;
+  return renames;
 }
 
 export function removeFamily(doc: BomDocument, name: string): void {
@@ -464,6 +491,9 @@ export function validateDocument(doc: BomDocument): string[] {
   const errors: string[] = [];
   const relIds = new Set<string>();
   const bomIds = new Set<string>();
+  for (const f of doc.families) {
+    if (hasQuote([f.name, ...f.values])) errors.push(`Variant family ${f.name}: names and values cannot contain '"'`);
+  }
   for (const item of doc.items.values()) {
     if (item.type && !findItemType(doc, item.type)) errors.push(`Item ${item.id}: unknown type '${item.type}'`);
   }

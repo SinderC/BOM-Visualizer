@@ -159,7 +159,9 @@ export function showVariantFamiliesDialog(app: App): void {
         f.values.join(', '),
         (v) =>
           update(() => {
-            setFamilyValues(doc, f.name, v.split(','));
+            const renames = setFamilyValues(doc, f.name, v.split(','));
+            const selected = ctx.options[f.name];
+            if (selected !== undefined && renames.has(selected)) ctx.options[f.name] = renames.get(selected);
             if (!f.values.includes(ctx.options[f.name] ?? '')) delete ctx.options[f.name];
           }),
         { className: 'mono', title: 'Comma-separated values' },
@@ -174,7 +176,11 @@ export function showVariantFamiliesDialog(app: App): void {
     return [
       ...rows,
       button({ type: 'button' }, () => update(() => addFamily(doc)), '+ Add family'),
-      h('p', { className: 'muted' }, 'Renaming a family does not rewrite existing expressions; they will show as invalid.'),
+      h(
+        'p',
+        { className: 'muted' },
+        'Renaming a family or value (in place, keeping the number of values) updates the expressions that use it. Names may contain spaces; expressions write them in double quotes.',
+      ),
     ];
   });
 }
