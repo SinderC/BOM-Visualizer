@@ -50,8 +50,8 @@
   --bg: #14171c;
   --panel: #1c2027;
   --border: #2e343e;
-  --text: #e3e7ee;
-  --muted: #8b94a3;
+  --text: #eef1f5;
+  --muted: #9ba4b3;
   --accent: #6b9cff;
   --accent-soft: #23314d;
   --on-accent: #14171c; /* white on the light blue fails contrast */
@@ -168,6 +168,12 @@ aside {
 h2 { font-size: 14px; margin: 0 0 8px; }
 h2:not(:first-child) { margin-top: 20px; }
 h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 18px 0 6px; }
+/* Collapsible editor sections: the heading is the toggle, with a chevron pointing down when open. */
+summary { list-style: none; cursor: pointer; }
+summary::-webkit-details-marker { display: none; }
+summary h3 { display: flex; align-items: center; gap: 8px; }
+summary:hover h3 { color: var(--text); }
+details:not([open]) > summary .caret { transform: translateX(-2px) rotate(-45deg); }
 
 label { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; font-size: 12px; color: var(--muted); }
 label.check { flex-direction: row; align-items: center; gap: 6px; margin: 0 0 8px; color: var(--text); }
@@ -195,7 +201,13 @@ button.danger { color: var(--danger); }
 button.primary { --fill: var(--accent); background: var(--fill); border-color: var(--fill); color: var(--on-accent); font-weight: 500; }
 button.primary.danger { --fill: var(--danger); color: var(--on-danger); }
 button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--fill) 85%, var(--text)); }
-#editor > button.danger { margin-top: 8px; } /* Remove from parent, below Add child */
+/* Type pickers in the editor are as wide as their widest option; the field beside them takes the rest of the row. */
+#editor .row > :is(select.type-select, label:has(> select.type-select)) { flex: none; }
+#editor select.type-select { align-self: flex-start; }
+/* Add child's controls are not in labels, so they get no label margin. */
+.add-child { display: grid; gap: 8px; }
+.add-child > button { justify-self: start; }
+#editor details > button.danger { display: block; margin-top: 8px; } /* Remove from parent, on its own row below Add child */
 button.icon { padding: 4px 8px; flex: 0 0 auto; }
 /* A red ✕ on every list row is noisy; it turns red when pointed at. */
 button.icon.danger { color: var(--muted); }

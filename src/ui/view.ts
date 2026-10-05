@@ -1,7 +1,7 @@
 /**
  * View options remembered in localStorage: side panels, banded rows and tree-table columns (applied with CSS, so
  * toggling needs no re-render), whether the configuration is applied (read into state at start) and whether rows it
- * excludes are hidden (read by the tree-table when rendering).
+ * excludes are hidden (read by the tree-table when rendering), and which editor sections are collapsed.
  */
 const VIEW_KEY = 'bom-visualizer.view';
 
@@ -27,6 +27,7 @@ interface ViewPrefs {
   hiddenPanels: Panel[];
   applyConfig: boolean;
   hideExcluded: boolean;
+  collapsedSections: string[]; // editor section keys
 }
 
 const list = <T>(v: unknown): T[] => (Array.isArray(v) ? v : []);
@@ -40,10 +41,11 @@ function readStored(): ViewPrefs {
       hiddenPanels: list(v.hiddenPanels),
       applyConfig: v.applyConfig !== false,
       hideExcluded: !!v.hideExcluded,
+      collapsedSections: list(v.collapsedSections),
     };
   } catch {
     // Storage unavailable or corrupt: defaults.
-    return { banded: false, hiddenColumns: [], hiddenPanels: [], applyConfig: true, hideExcluded: false };
+    return { banded: false, hiddenColumns: [], hiddenPanels: [], applyConfig: true, hideExcluded: false, collapsedSections: [] };
   }
 }
 
@@ -103,5 +105,14 @@ export const isHideExcluded = () => prefs.hideExcluded;
 
 export function setHideExcluded(hide: boolean): void {
   prefs.hideExcluded = hide;
+  store();
+}
+
+export const isSectionOpen = (key: string) => !prefs.collapsedSections.includes(key);
+
+export function setSectionOpen(key: string, open: boolean): void {
+  if (isSectionOpen(key) === open) return; // toggle also fires when a section is built open
+  prefs.collapsedSections = prefs.collapsedSections.filter((k) => k !== key);
+  if (!open) prefs.collapsedSections.push(key);
   store();
 }

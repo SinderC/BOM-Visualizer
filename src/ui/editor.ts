@@ -22,6 +22,7 @@ import type { Occurrence, Status } from '../resolve';
 import { showConfirmDialog, showNewItemTypeDialog } from './dialogs';
 import { button, field, h, input } from './dom';
 import { attachExprCompletion } from './expr-complete';
+import { isSectionOpen, setSectionOpen } from './view';
 
 const STATUS_TEXT: Record<Status, string> = {
   included: 'Included',
@@ -50,7 +51,7 @@ export function typeSelect(
   const doc = openDoc(app.state);
   const select = h(
     'select',
-    { name },
+    { name, className: 'type-select' },
     ...(mixed ? [h('option', { value: MIXED, disabled: true }, '— mixed —')] : []),
     h('option', { value: '' }, '—'),
     ...doc.itemTypes.map((t) => h('option', { value: t.name }, t.name)),
@@ -64,6 +65,21 @@ export function typeSelect(
     showNewItemTypeDialog((type, prefix) => app.tryCommit(() => onPick(addItemType(doc, type, prefix))));
   });
   return select;
+}
+
+/**
+ * Collapsible section whose open state is remembered by `key`; keep keys stable, as they are stored in view
+ * preferences. The single and multiple selection views share keys.
+ */
+function section(key: string, heading: (Node | string)[], ...children: HTMLElement[]): HTMLDetailsElement {
+  const details = h(
+    'details',
+    { open: isSectionOpen(key) },
+    h('summary', {}, h('h3', {}, h('span', { className: 'caret' }), ...heading)),
+    ...children,
+  );
+  details.addEventListener('toggle', () => setSectionOpen(key, details.open));
+  return details;
 }
 
 /** Type for new children; remembered across renders so consecutive adds keep the last choice. */
@@ -103,11 +119,14 @@ function itemSection(app: App, occ: Occurrence): HTMLElement[] {
   const type = typeSelect(app, 'item-type', item.type, (t) => setItemType(doc, item.id, t));
 
   return [
-    h('h3', {}, 'Item'),
-    h('div', { className: 'row' }, field('ID', idControl), field('Type', type)),
-    field('Name', input('item-name', item.name, (v) => app.commit(() => updateItem(doc, item.id, { name: v || item.name })))),
-    field('Description', description),
-    h('p', { className: 'muted' }, `Used by ${uses} relation${uses === 1 ? '' : 's'} across all BOMs; item edits apply everywhere.`),
+    section(
+      'item',
+      ['Item'],
+      h('div', { className: 'row' }, field('ID', idControl), field('Type', type)),
+      field('Name', input('item-name', item.name, (v) => app.commit(() => updateItem(doc, item.id, { name: v || item.name })))),
+      field('Description', description),
+      h('p', { className: 'muted' }, `Used by ${uses} relation${uses === 1 ? '' : 's'} across all BOMs; item edits apply everywhere.`),
+    ),
   ];
 }
 
@@ -128,29 +147,40 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
   expr.addEventListener('change', () => set({ variantExpr: expr.value.trim() }));
 
   return [
-    h('h3', {}, `Relation ${rel.id}`, h('span', { className: 'muted' }, ` (parent ${rel.parentId})`)),
-    h(
-      'div',
-      { className: 'row' },
-      field('Qty', input('rel-qty', rel.qty, (v) => set({ qty: parseQty(v, rel.qty) }), { ...MONO, type: 'number' })),
-      field('Find no.', input('rel-find', rel.findNo, (v) => set({ findNo: v }), MONO)),
+    section(
+      'relation',
+      [`Relation ${rel.id}`, h('span', { className: 'muted' }, ` (parent ${rel.parentId})`)],
+      h(
+        'div',
+        { className: 'row' },
+        field('Qty', input('rel-qty', rel.qty, (v) => set({ qty: parseQty(v, rel.qty) }), { ...MONO, type: 'number' })),
+        field('Find no.', input('rel-find', rel.findNo, (v) => set({ findNo: v }), MONO)),
+      ),
     ),
-    field('Variant expression', expr),
-    errors,
-    h('p', { className: 'muted hint' }, 'e.g. ENGINE=V8 AND (MARKET=EU OR TRIM IN (BASE, SPORT)), "Engine type"="V6 Turbo". Blank = always.'),
-    h(
-      'div',
-      { className: 'row' },
-      field('Date from', input('eff-df', rel.eff.dateFrom, (v) => setEff({ dateFrom: v || undefined }), { type: 'date' })),
-      field('Date to', input('eff-dt', rel.eff.dateTo, (v) => setEff({ dateTo: v || undefined }), { type: 'date' })),
+    section(
+      'variant',
+      ['Variant'],
+      field('Variant expression', expr),
+      errors,
+      h('p', { className: 'muted hint' }, 'e.g. ENGINE=V8 AND (MARKET=EU OR TRIM IN (BASE, SPORT)), "Engine type"="V6 Turbo". Blank = always.'),
     ),
-    h(
-      'div',
-      { className: 'row' },
-      field('Unit from', input('eff-uf', rel.eff.unitFrom, (v) => setEff({ unitFrom: parseUnit(v, rel.eff.unitFrom) }), UNIT)),
-      field(
-        'Unit to',
-        input('eff-ut', rel.eff.unitTo, (v) => setEff({ unitTo: parseUnit(v, rel.eff.unitTo) }), { ...UNIT, placeholder: 'UP' }),
+    section(
+      'eff',
+      ['Effectivity'],
+      h(
+        'div',
+        { className: 'row' },
+        field('Date from', input('eff-df', rel.eff.dateFrom, (v) => setEff({ dateFrom: v || undefined }), { type: 'date' })),
+        field('Date to', input('eff-dt', rel.eff.dateTo, (v) => setEff({ dateTo: v || undefined }), { type: 'date' })),
+      ),
+      h(
+        'div',
+        { className: 'row' },
+        field('Unit from', input('eff-uf', rel.eff.unitFrom, (v) => setEff({ unitFrom: parseUnit(v, rel.eff.unitFrom) }), UNIT)),
+        field(
+          'Unit to',
+          input('eff-ut', rel.eff.unitTo, (v) => setEff({ unitTo: parseUnit(v, rel.eff.unitTo) }), { ...UNIT, placeholder: 'UP' }),
+        ),
       ),
     ),
   ];
@@ -171,8 +201,7 @@ function multiSection(app: App, focused: Occurrence): HTMLElement[] {
   const out: HTMLElement[] = [
     h('h2', {}, `${occs.length} rows selected`),
     h('p', { className: 'muted' }, `${itemIds.length} item${itemIds.length === 1 ? '' : 's'}; item edits apply everywhere.`),
-    h('h3', {}, 'Item'),
-    field('Type', type),
+    section('item', ['Item'], field('Type', type)),
   ];
   if (relIds.length) {
     const remove = () =>
@@ -183,7 +212,7 @@ function multiSection(app: App, focused: Occurrence): HTMLElement[] {
         app.state.extraSelected = [];
       });
     const rows = `${relIds.length} row${relIds.length === 1 ? '' : 's'}`;
-    out.push(h('h3', {}, 'Structure'), removeButton(`Remove ${rows} from their parents?`, remove));
+    out.push(section('structure', ['Structure'], removeButton(`Remove ${rows} from their parents?`, remove)));
   }
   return out;
 }
@@ -232,7 +261,8 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
     });
   }
 
-  const out: HTMLElement[] = [h('h3', {}, 'Structure'), h('div', { className: 'row' }, existing), h('div', { className: 'row' }, name, type), add];
+  const addChild = h('div', { className: 'add-child' }, h('div', { className: 'row' }, existing), h('div', { className: 'row' }, name, type), add);
+  const structure = section('structure', ['Structure'], addChild);
   if (occ.relation) {
     const relId = occ.relation.id;
     const remove = () =>
@@ -241,9 +271,9 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
         app.state.selected = parentAddress(occ.address);
       });
     const parent = app.occurrence(parentAddress(occ.address))!.item.name;
-    out.push(removeButton(`Remove ${occ.item.name} from ${parent}?`, remove));
+    structure.append(removeButton(`Remove ${occ.item.name} from ${parent}?`, remove));
   }
-  return out;
+  return [structure];
 }
 
 /** "Remove from parent" button that asks first; the rows' children go too where they are not used elsewhere in the BOM. */
