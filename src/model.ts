@@ -146,12 +146,29 @@ function idPrefix(doc: BomDocument, type?: string): string {
 
 /** The start of the item's id that its type fixes, or '' when it is untyped or its id does not start with the prefix. */
 export function lockedIdPrefix(doc: BomDocument, item: Item): string {
-  const prefix = item.type === undefined ? '' : idPrefix(doc, item.type);
+  const prefix = typeIdPrefix(doc, item.type);
   return item.id.startsWith(prefix) ? prefix : '';
 }
 
-export function addItem(doc: BomDocument, name: string, description = '', type?: string): Item {
-  const item = { id: nextId(idPrefix(doc, type), doc.items.keys()), name, description, type };
+/** Id a new item of the type gets when none is given. */
+export function nextItemId(doc: BomDocument, type?: string): string {
+  return nextId(idPrefix(doc, type), doc.items.keys());
+}
+
+/** The prefix the type puts on ids of new items; '' for untyped items, whose ids are free-form. */
+export function typeIdPrefix(doc: BomDocument, type?: string): string {
+  return type === undefined ? '' : idPrefix(doc, type);
+}
+
+/** Throws unless the id can be given to an item: non-empty, no spaces and not in use. */
+function checkFreeItemId(doc: BomDocument, id: string): void {
+  if (!id || /\s/.test(id)) throw new Error('Item ID must be non-empty and contain no spaces');
+  if (doc.items.has(id)) throw new Error(`Item ID ${id} is already in use`);
+}
+
+export function addItem(doc: BomDocument, name: string, description = '', type?: string, id = nextItemId(doc, type)): Item {
+  checkFreeItemId(doc, id);
+  const item = { id, name, description, type };
   doc.items.set(item.id, item);
   return item;
 }
@@ -164,9 +181,8 @@ export function updateItem(doc: BomDocument, id: string, patch: Partial<Omit<Ite
 /** Changes an item's id and rewrites every reference to it. Occurrence addresses use relation ids, so they are unaffected. */
 export function renameItem(doc: BomDocument, oldId: string, newId: string): void {
   if (!doc.items.has(oldId)) throw new Error(`Unknown item ${oldId}`);
-  if (!newId || /\s/.test(newId)) throw new Error('Item ID must be non-empty and contain no spaces');
   if (newId === oldId) return;
-  if (doc.items.has(newId)) throw new Error(`Item ID ${newId} is already in use`);
+  checkFreeItemId(doc, newId);
   // Rebuilt rather than delete+set to keep the item's position in the saved file.
   doc.items = new Map([...doc.items].map(([id, item]) => (id === oldId ? [newId, Object.assign(item, { id: newId })] : [id, item])));
   for (const bom of doc.boms) {

@@ -6,6 +6,7 @@ import {
   addRelation,
   DEFAULT_ITEM_TYPES,
   lockedIdPrefix,
+  nextItemId,
   occurrencePath,
   parentAddress,
   parseQty,
@@ -13,6 +14,7 @@ import {
   removeRelation,
   renameItem,
   setItemType,
+  typeIdPrefix,
   updateItem,
   updateRelation,
   usageCount,
@@ -20,7 +22,7 @@ import {
 } from '../model';
 import type { Occurrence, Status } from '../resolve';
 import { showConfirmDialog, showNewItemTypeDialog } from './dialogs';
-import { button, dateField, field, h, input } from './dom';
+import { button, dateField, field, h, input, isMac } from './dom';
 import { attachExprCompletion } from './expr-complete';
 import { isSectionOpen, setSectionOpen } from './view';
 
@@ -84,8 +86,9 @@ function section(key: string, heading: (Node | string)[], ...children: HTMLEleme
 
 /** Type for new children; remembered across renders so consecutive adds keep the last choice. */
 let addChildType: string | undefined = DEFAULT_ITEM_TYPES[0].name;
-/** Name typed for a new child; kept across renders, such as the one after picking its type, until the child is added. */
+/** Name and id typed for a new child; kept across renders, such as the one after picking its type, until the child is added. */
 let addChildName = '';
+let addChildId = '';
 
 export function renderEditor(container: HTMLElement, app: App): void {
   const occ = app.occurrence(app.state.selected);
@@ -230,35 +233,45 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
   if (addChildType && !doc.itemTypes.some((t) => t.name === addChildType)) addChildType = undefined;
   const type = typeSelect(app, 'add-type', addChildType, (t) => (addChildType = t));
   type.title = 'Type of the new item; also sets its ID prefix';
-  const add = button(
-    { className: 'primary' },
-    () =>
-      app.tryCommit(() => {
-        const childId = existing.value || addItem(doc, name.value.trim() || 'New item', '', addChildType).id;
-        const rel = addRelation(doc, bom, occ.item.id, childId);
-        addChildName = '';
-        collapsed.delete(occ.address);
-        app.state.selected = occurrencePath(bom.id, [...occ.path, rel.id]);
-      }),
-    'Add child',
-  );
+  // As in the item's ID field, the type's prefix is fixed; left empty, the next free id is used.
+  const prefix = typeIdPrefix(doc, addChildType);
+  const id = h('input', {
+    name: 'add-id',
+    className: 'mono',
+    title: 'ID of the new item; leave empty for the next free one',
+    placeholder: nextItemId(doc, addChildType).slice(prefix.length),
+    value: addChildId,
+  });
+  id.addEventListener('input', () => (addChildId = id.value));
+  const idControl = prefix ? h('div', { className: 'id-input' }, h('span', { className: 'mono muted' }, prefix), id) : id;
+  /** With `stay`, the parent stays selected, for adding several children in a row. */
+  const addNew = (stay: boolean) =>
+    app.tryCommit(() => {
+      const newId = id.value.trim() ? prefix + id.value.trim() : undefined;
+      const childId = existing.value || addItem(doc, name.value.trim() || 'New item', '', addChildType, newId).id;
+      const rel = addRelation(doc, bom, occ.item.id, childId);
+      addChildName = addChildId = '';
+      collapsed.delete(occ.address);
+      if (!stay) app.state.selected = occurrencePath(bom.id, [...occ.path, rel.id]);
+    });
+  const add = button({ className: 'primary' }, () => addNew(false), 'Add child');
   // A new item needs a type; an existing one has its own.
   const update = () => {
-    name.disabled = type.disabled = !!existing.value;
+    name.disabled = id.disabled = type.disabled = !!existing.value;
     add.disabled = !existing.value && !addChildType;
-    add.title = add.disabled ? 'Select an item type' : '';
+    add.title = add.disabled ? 'Select an item type' : `Enter adds and selects the child; ${isMac ? '⌘' : 'Ctrl+'}Enter adds it and stays on this item`;
   };
   update();
   existing.addEventListener('change', update);
-  for (const el of [name, type] as HTMLElement[]) {
+  for (const el of [name, id, type] as HTMLElement[]) {
     el.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' || add.disabled) return;
       e.preventDefault();
-      add.click();
+      addNew(isMac ? e.metaKey : e.ctrlKey);
     });
   }
 
-  const addChild = h('div', { className: 'add-child' }, h('div', { className: 'row' }, existing), h('div', { className: 'row' }, name, type), add);
+  const addChild = h('div', { className: 'add-child' }, h('div', { className: 'row' }, existing), h('div', { className: 'row' }, name, idControl, type), add);
   const structure = section('structure', ['Structure'], addChild);
   if (occ.relation) {
     const relId = occ.relation.id;

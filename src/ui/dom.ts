@@ -16,6 +16,9 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return el;
 }
 
+/** Mac shortcuts use Cmd where others use Ctrl. */
+export const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+
 export function button(props: Props<'button'>, onClick: () => void, ...children: (Node | string)[]): HTMLButtonElement {
   const b = h('button', props, ...children);
   b.addEventListener('click', onClick);

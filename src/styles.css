@@ -220,6 +220,7 @@ button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--fill)
 /* Add child's controls are not in labels, so they get no label margin. */
 .add-child { display: grid; gap: 8px; }
 .add-child > button { justify-self: start; }
+.add-child .row > :is([name='add-id'], .id-input) { flex: 0 1 8em; } /* the name gets the most room */
 #editor details > button.danger { display: block; margin-top: 8px; } /* Remove from parent, on its own row below Add child */
 button.icon { padding: 4px 8px; flex: 0 0 auto; }
 /* A red ✕ on every list row is noisy; it turns red when pointed at. */

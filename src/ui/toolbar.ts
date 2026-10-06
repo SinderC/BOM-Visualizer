@@ -2,7 +2,7 @@ import { activeBom, openDoc, resetView, type App, type State } from '../app';
 import { createDocument, type Bom } from '../model';
 import { parseXml, serializeXml } from '../xml';
 import { showItemTypesDialog, showStructureTypesDialog, showVariantFamiliesDialog, showUnsavedChangesDialog } from './dialogs';
-import { button, h } from './dom';
+import { button, h, isMac } from './dom';
 import { setThemePref, themePref, type ThemePref } from './theme';
 import {
   COLUMNS,
@@ -285,8 +285,6 @@ function exitAlign(state: State): void {
 function shortcutItem(label: string, shortcut: string, title: string, onClick: () => void): HTMLButtonElement {
   return button({ title }, onClick, h('span', {}, label), h('span', { className: 'muted' }, shortcut));
 }
-
-const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 
 function editItems(app: App): HTMLElement[] {
   const { history } = app;

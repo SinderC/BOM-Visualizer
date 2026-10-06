@@ -39,6 +39,14 @@ describe('model', () => {
     expect(addItem(doc, 'Thing').id).toBe('I2'); // I1 is the BOM root
   });
 
+  it('adds an item with a given id', () => {
+    const doc = createDocument();
+    expect(addItem(doc, 'Bolt', '', 'Part Revision', 'P-100').id).toBe('P-100');
+    expect(addItem(doc, 'Nut', '', 'Part Revision').id).toBe('P-101');
+    expect(() => addItem(doc, 'Washer', '', 'Part Revision', 'P-100')).toThrow(/already in use/);
+    expect(() => addItem(doc, 'Washer', '', undefined, 'W 1')).toThrow(/no spaces/);
+  });
+
   it('locks the type prefix of item ids that start with it', () => {
     const doc = createDocument();
     const bolt = addItem(doc, 'Bolt', '', 'Part Revision');
