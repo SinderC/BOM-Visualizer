@@ -44,13 +44,13 @@ function menu(label: string, items: HTMLElement[], disabled = false): HTMLElemen
 
 /**
  * Entry that opens a nested menu to its right, on hover or click. Nested in the parent list so both stay open.
- * With `checkColumn`, has an empty check column so its label lines up with check items in the same menu.
+ * Has an empty check column so its label lines up with check items in the same menu.
  */
-function submenu(label: string, items: HTMLElement[], checkColumn = true): HTMLElement {
+function submenu(label: string, items: HTMLElement[]): HTMLElement {
   const trigger = h(
     'button',
     { className: 'check-item', dataset: { keepOpen: '' } },
-    ...(checkColumn ? [h('span', { className: 'check' })] : []),
+    h('span', { className: 'check' }),
     h('span', {}, label),
     h('span', { className: 'muted caret right' }),
   );
@@ -211,6 +211,7 @@ export function renderToolbar(container: HTMLElement, app: App): void {
     menu('BOM', doc ? bomItems(app) : [], noDoc),
     menu('View', viewItems(app)),
     h('span', { className: 'sep' }),
+    ...alignControl(app),
     fileName,
     repoLink(),
   );
@@ -239,15 +240,22 @@ function bomItems(app: App): HTMLElement[] {
       h('span', { className: 'muted' }, b.type ?? ''),
     ),
   );
-  const others = doc.boms.filter((b) => b !== bom);
-  const alignItems = others.map((b) =>
-    checkItem(b.name || b.id, app.state.align?.bomId === b.id, `Show ${b.name || b.id} beside this BOM to align occurrences`, () =>
-      app.commit(() => (app.state.align = { bomId: b.id })),
-    ),
+  return switchItems;
+}
+
+/** Toolbar control left of the file name: a menu of BOMs to align with, or the way back while aligning. */
+function alignControl(app: App): HTMLElement[] {
+  if (!app.state.doc) return [];
+  if (app.state.align) {
+    return [button({ className: 'primary', title: 'Back to editing this BOM' }, () => app.commit(() => (app.state.align = undefined)), 'Exit alignment view')];
+  }
+  const bom = activeBom(app.state);
+  const others = app.state.doc.boms.filter((b) => b !== bom);
+  if (!others.length) return [];
+  const items = others.map((b) =>
+    button({ title: `Show ${b.name || b.id} beside this BOM to align occurrences` }, () => app.commit(() => (app.state.align = { bomId: b.id })), b.name || b.id),
   );
-  const exitAlign = button({ title: 'Back to editing this BOM' }, () => app.commit(() => (app.state.align = undefined)), 'Exit alignment view');
-  const alignment = [...(others.length ? [submenu('Align with', alignItems, false)] : []), ...(app.state.align ? [exitAlign] : [])];
-  return [...switchItems, ...(alignment.length ? [h('hr'), ...alignment] : [])];
+  return [menu('Align with…', items)];
 }
 
 /** Menu entry with its keyboard shortcut right-aligned, as in native menus. */
