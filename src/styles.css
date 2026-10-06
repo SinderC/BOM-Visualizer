@@ -306,6 +306,7 @@ body.aligning .align-view { display: grid; grid-template-columns: 1fr 80px 1fr; 
 .align-links path { fill: none; stroke: var(--muted); stroke-width: 1.5; }
 .align-links path.ancestor { stroke-dasharray: 4 3; }
 .align-links path.active { stroke: var(--accent); stroke-width: 2.5; }
+.align-links path.excluded { opacity: var(--excluded); }
 .tree-table tr.unaligned td:first-child { box-shadow: inset 3px 0 var(--eff); }
 .align-pick { margin-bottom: 8px; overflow-wrap: anywhere; }
 .align-pick h3 { margin-top: 0; }

@@ -70,6 +70,7 @@ export function createAlignmentView(container: HTMLElement, app: App) {
       path.setAttribute('d', `M0 ${a.y} C${width / 2} ${a.y} ${width / 2} ${b.y} ${width} ${b.y}`);
       path.classList.toggle('active', l === app.state.selected || r === app.state.align?.selected);
       path.classList.toggle('ancestor', a.ancestor || b.ancestor);
+      path.classList.toggle('excluded', [l, r].some((x) => app.occurrence(x)!.status !== 'included'));
       return [path];
     });
     svg.replaceChildren(...paths);
