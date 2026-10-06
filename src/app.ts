@@ -10,7 +10,8 @@ export interface State {
   selected?: string; // occurrence address; the focused row of a multi-selection
   extraSelected: string[]; // the other selected rows' addresses
   collapsed: Set<string>; // occurrence addresses, of any BOM
-  align?: { bomId: string; selected?: string }; // alignment view: the right-hand BOM and its selection
+  // Alignment view: the right-hand BOM and its selection, and the BOM to go back to on exit when it is not the left one.
+  align?: { bomId: string; selected?: string; returnTo?: string };
 }
 
 /** Shared handle passed to UI modules. Mutate state inside `commit` to trigger a re-render. */

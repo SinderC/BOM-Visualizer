@@ -1,5 +1,5 @@
-import { activeBom, openDoc, resetView, type App } from '../app';
-import { createDocument } from '../model';
+import { activeBom, openDoc, resetView, type App, type State } from '../app';
+import { createDocument, type Bom } from '../model';
 import { parseXml, serializeXml } from '../xml';
 import { showItemTypesDialog, showStructureTypesDialog, showVariantFamiliesDialog, showUnsavedChangesDialog } from './dialogs';
 import { button, h } from './dom';
@@ -247,15 +247,38 @@ function bomItems(app: App): HTMLElement[] {
 function alignControl(app: App): HTMLElement[] {
   if (!app.state.doc) return [];
   if (app.state.align) {
-    return [button({ className: 'primary', title: 'Back to editing this BOM' }, () => app.commit(() => (app.state.align = undefined)), 'Exit alignment view')];
+    return [button({ className: 'primary', title: 'Back to editing this BOM' }, () => app.commit(() => exitAlign(app.state)), 'Exit alignment view')];
   }
   const bom = activeBom(app.state);
   const others = app.state.doc.boms.filter((b) => b !== bom);
   if (!others.length) return [];
   const items = others.map((b) =>
-    button({ title: `Show ${b.name || b.id} beside this BOM to align occurrences` }, () => app.commit(() => (app.state.align = { bomId: b.id })), b.name || b.id),
+    button({ title: `Show ${b.name || b.id} beside this BOM to align occurrences` }, () => app.commit(() => startAlign(app.state, bom, b)), b.name || b.id),
   );
   return [menu('Align with…', items)];
+}
+
+/** Aligns `bom` with `other`. An EBOM is always shown on the left, so aligning with one swaps the sides. */
+function startAlign(state: State, bom: Bom, other: Bom): void {
+  if (other.type !== 'EBOM' || bom.type === 'EBOM') {
+    state.align = { bomId: other.id };
+    return;
+  }
+  // The current selection moves with its BOM to the right.
+  state.align = { bomId: bom.id, selected: state.selected, returnTo: bom.id };
+  state.bomId = other.id;
+  state.selected = undefined;
+  state.extraSelected = [];
+}
+
+/** Leaves the alignment view for the BOM it was started from, keeping that BOM's selection. */
+function exitAlign(state: State): void {
+  const { returnTo, selected } = state.align!;
+  state.align = undefined;
+  if (returnTo === undefined) return;
+  state.bomId = returnTo;
+  state.selected = selected;
+  state.extraSelected = [];
 }
 
 /** Menu entry with its keyboard shortcut right-aligned, as in native menus. */
