@@ -1,7 +1,7 @@
 import { activeBom, openDoc, resetView, type App, type State } from '../app';
 import { createDocument, type Bom } from '../model';
 import { parseXml, serializeXml } from '../xml';
-import { showItemTypesDialog, showStructureTypesDialog, showVariantFamiliesDialog, showUnsavedChangesDialog } from './dialogs';
+import { showImportCsvDialog, showItemTypesDialog, showStructureTypesDialog, showVariantFamiliesDialog, showUnsavedChangesDialog } from './dialogs';
 import { button, h, isMac } from './dom';
 import { setThemePref, themePref, type ThemePref } from './theme';
 import {
@@ -170,6 +170,13 @@ export function renderToolbar(container: HTMLElement, app: App): void {
     fileInput.value = '';
     if (file) void openFile(app, file);
   });
+  const csvInput = h('input', { type: 'file', accept: '.csv,text/csv', hidden: true });
+  csvInput.addEventListener('change', () => {
+    const file = csvInput.files?.[0];
+    csvInput.value = '';
+    if (file) void file.text().then((text) => showImportCsvDialog(app, file.name, text));
+  });
+  const importItem = button({ title: 'Build a new BOM from a CSV of Parent, ID, … rows' }, () => csvInput.click(), 'Import from CSV…');
 
   const save = button({ title: canWrite ? `Save ${state.fileName}` : `Download as ${state.fileName}` }, () => void saveFile(app), 'Save');
   const saveAs = button({ title: 'Save to a new file' }, () => void saveFile(app, true), 'Save As…');
@@ -182,7 +189,7 @@ export function renderToolbar(container: HTMLElement, app: App): void {
       }),
     'Close',
   );
-  save.disabled = saveAs.disabled = close.disabled = noDoc;
+  save.disabled = saveAs.disabled = close.disabled = importItem.disabled = noDoc;
   const dirty = app.isDirty();
   const fileName = h('span', { className: 'muted file-name', title: dirty ? 'Unsaved changes' : '' }, (dirty ? '• ' : '') + state.fileName);
 
@@ -201,12 +208,14 @@ export function renderToolbar(container: HTMLElement, app: App): void {
         'New',
       ),
       button({ title: 'Open a BOM XML file' }, () => confirmUnsaved(app, () => void pickAndOpen(app, fileInput)), 'Open…'),
+      importItem,
       save,
       ...(canWrite ? [saveAs] : []),
       h('hr'),
       close,
     ]),
     fileInput,
+    csvInput,
     menu('Edit', editItems(app)),
     menu('View', viewItems(app)),
     menu('BOM', doc ? bomItems(app) : [], noDoc),

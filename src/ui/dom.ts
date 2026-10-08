@@ -1,3 +1,4 @@
+import { isIsoDate } from '../model';
 type Props<K extends keyof HTMLElementTagNameMap> = Partial<Omit<HTMLElementTagNameMap[K], 'dataset'>> & {
   dataset?: Record<string, string>;
 };
@@ -39,9 +40,6 @@ export function input(
   el.addEventListener('change', () => onCommit(el.value.trim()));
   return el;
 }
-
-/** Rejects impossible dates such as 2026-02-30, which Date rolls over into March. */
-const isIsoDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v)) && new Date(v).toISOString().startsWith(v);
 
 const CALENDAR_ICON =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" stroke-width="1.4"/></svg>';

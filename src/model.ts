@@ -413,6 +413,9 @@ export function parseQty(v: string, current: number): number {
   return v !== '' && Number.isFinite(n) && n >= 0 ? n : current;
 }
 
+/** A yyyy-mm-dd date; rejects impossible dates such as 2026-02-30, which Date rolls over into March. */
+export const isIsoDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v)) && new Date(v).toISOString().startsWith(v);
+
 /** Unit (serial) numbers start at 1. */
 export const isUnit = (n: number) => Number.isInteger(n) && n >= 1;
 

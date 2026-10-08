@@ -19,6 +19,7 @@ Lightweight browser sandbox for trying out BOM concepts: multi-level structures,
 - View menu: Theme (System — default, follows the OS live — Light or Dark), Columns (show/hide each column except Name), Banded rows, and show/hide the Configuration and Editor panels; all remembered in localStorage.
 - File > Close closes the document. In Chrome/Edge (where Save writes back to the file), Close, New, Open and leaving the page ask to save unsaved changes first. A • before the file name (toolbar and browser tab title) marks unsaved changes.
 - Open/save as XML — see [docs/schema.md](docs/schema.md).
+- File > Import from CSV… builds a new BOM from Parent, ID, Name, Type, Qty, … rows (comma or semicolon separated), after a preview of the structure and any problems; IDs already in the document reuse their items, and missing item types and variant values can be created — see [CSV import](docs/schema.md#csv-import).
 
 ## Use
 

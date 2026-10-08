@@ -1,4 +1,6 @@
 import { openDoc, resetView, type App } from '../app';
+import { importCsv, type CsvImport, type Missing } from '../csv';
+import { formatEffEnd } from '../effectivity';
 import {
   addBom,
   addFamily,
@@ -14,12 +16,19 @@ import {
   renameItemType,
   setFamilyValues,
   setItemTypePrefix,
+  sortedChildren,
+  type Bom,
+  type BomDocument,
   type BomType,
+  type Relation,
 } from '../model';
 import { button, field, h, input } from './dom';
 
-/** Modal form; `onSubmit` runs only when confirmed. Without a field to type in, Enter confirms. `danger` fills the submit button red. */
-function showFormDialog(title: string, submitLabel: string, fields: HTMLElement[], onSubmit: () => void, danger = false): void {
+/**
+ * Modal form; `onSubmit` runs only when confirmed. Without a field to type in, Enter confirms. `danger` fills the submit
+ * button red. Returns the submit button; disabling it also stops Enter from confirming.
+ */
+function showFormDialog(title: string, submitLabel: string, fields: HTMLElement[], onSubmit: () => void, danger = false): HTMLButtonElement {
   const cancel = h('button', { type: 'button' }, 'Cancel');
   const submit = h('button', { className: danger ? 'primary danger' : 'primary' }, submitLabel);
   const form = h('form', { method: 'dialog' }, h('h2', {}, title), ...fields, h('div', { className: 'dialog-actions' }, cancel, submit));
@@ -31,6 +40,7 @@ function showFormDialog(title: string, submitLabel: string, fields: HTMLElement[
   document.body.append(dialog);
   dialog.showModal();
   if (document.activeElement === cancel) submit.focus();
+  return submit;
 }
 
 /** Asks to confirm a destructive action, with the confirm button in the danger color; Enter confirms, Escape cancels. */
@@ -239,6 +249,92 @@ export function showVariantFamiliesDialog(app: App): void {
       ),
     ];
   });
+}
+
+/**
+ * Preview of a CSV import (see importCsv): the new BOM's name and type, the item types and variant values it lacks
+ * (created when the box is checked), what it adds and its structure, or the problems found, with Create disabled.
+ * Nothing changes until Create, which is one undo step.
+ */
+export function showImportCsvDialog(app: App, fileName: string, text: string): void {
+  const baseName = fileName.replace(/\.[^.]*$/, '');
+  const name = requiredText();
+  name.value = baseName;
+  const type = bomTypeSelect('type', BOM_TYPES[0]);
+  const createMissing = h('input', { type: 'checkbox', name: 'create-missing', checked: true });
+  const body = h('div', {});
+  let result: CsvImport | undefined;
+  const render = () => {
+    const doc = openDoc(app.state);
+    result = importCsv(doc, text, baseName, createMissing.checked);
+    submit.disabled = 'errors' in result;
+    body.replaceChildren(...missingList(doc, result.missing, createMissing), ...importSummary(doc, result));
+  };
+  createMissing.addEventListener('change', render);
+  const fields = [h('div', { className: 'import-fields' }, field('BOM name', name), field('Type', type)), body];
+  const submit = showFormDialog(`Import ${fileName}`, 'Create', fields, () => {
+    if (!result || 'errors' in result) return;
+    const { doc, bom } = result;
+    app.tryCommit(() => {
+      Object.assign(bom, { name: name.value.trim(), type: type.value as BomType });
+      app.state.doc = doc;
+      app.state.bomId = bom.id;
+      resetView(app.state);
+      app.toast(`Imported ${bom.relations.length} relations into ${bom.name}`);
+    });
+  });
+  render();
+}
+
+/** The checkbox and what it creates; nothing when the document has every type and value the CSV uses. */
+function missingList(doc: BomDocument, { types, values }: Missing, checkbox: HTMLInputElement): HTMLElement[] {
+  if (!types.length && !values.size) return [];
+  const lines = [
+    ...types.map((t) => `Item type ${t.name}${t.prefix ? `, ID prefix ${t.prefix}` : ''}`),
+    ...[...values].map(([f, vs]) => `${doc.families.some((x) => x.name === f) ? 'Values of' : 'Variant family'} ${f}: ${vs.join(', ')}`),
+  ];
+  return [h('label', { className: 'check' }, checkbox, 'Create missing item types and variant values'), h('ul', { className: 'muted import-missing' }, ...lines.map((l) => h('li', {}, l)))];
+}
+
+/** Counts and the structure tree, or the problems. */
+function importSummary(before: BomDocument, result: CsvImport): HTMLElement[] {
+  if ('errors' in result) {
+    const { errors } = result;
+    const summary = h('p', {}, `${errors.length === 1 ? '1 problem' : `${errors.length} problems`}; fix the CSV and import it again.`);
+    return [summary, h('div', { className: 'import-preview' }, h('ul', { className: 'errors' }, ...errors.map((e) => h('li', {}, e))))];
+  }
+  const { doc, bom, reused } = result;
+  const added = doc.items.size - before.items.size;
+  return [h('p', {}, `${bom.relations.length} relations · ${added} new items · ${reused.size} reused`), importPreview(doc, bom, reused)];
+}
+
+/** Read-only indented tree of the imported BOM, with items already in the document marked as reused. */
+function importPreview(doc: BomDocument, bom: Bom, reused: Set<string>): HTMLElement {
+  const rows: HTMLElement[] = [];
+  const addRow = (itemId: string, rel: Relation | undefined, depth: number) => {
+    const item = doc.items.get(itemId)!;
+    const name = h('td', {}, item.name);
+    name.style.paddingLeft = `${10 + depth * 16}px`;
+    const cell = (text: string, className = '') => h('td', { className }, text);
+    rows.push(
+      h(
+        'tr',
+        { className: 'st-included' },
+        name,
+        cell(item.id),
+        cell(rel ? String(rel.qty) : '', 'num'),
+        cell(rel?.findNo ?? '', 'num'),
+        cell(rel?.variantExpr ?? '', 'expr'),
+        cell(rel ? formatEffEnd(rel.eff, 'from') : '', 'eff'),
+        cell(rel ? formatEffEnd(rel.eff, 'to') : '', 'eff'),
+        cell(reused.has(itemId) ? 'reused' : '', 'muted'),
+      ),
+    );
+    for (const r of sortedChildren(bom, itemId)) addRow(r.childId, r, depth + 1);
+  };
+  addRow(bom.rootId, undefined, 0);
+  const head = ['Name', 'ID', 'Qty', 'Find no.', 'Variant', 'Eff. from', 'Eff. to', ''].map((t) => h('th', {}, t));
+  return h('div', { className: 'import-preview' }, h('table', { className: 'tree-table' }, h('thead', {}, h('tr', {}, ...head)), h('tbody', {}, ...rows)));
 }
 
 /** Asks whether to save unsaved changes first. `onChoice` is not called on Cancel or Escape. */

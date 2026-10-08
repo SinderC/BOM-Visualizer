@@ -219,6 +219,12 @@ export function validate(src: string, families: OptionFamily[]): ExprError[] {
   });
 }
 
+/** Family and value names the expression compares, in source order; none when it has a syntax error. */
+export function exprNames(src: string): { family: string; values: string[] }[] {
+  const { ast } = parse(src);
+  return ast ? comparisons(ast).map((e) => ({ family: e.family.name, values: e.values.map((v) => v.name) })) : [];
+}
+
 /** The comparisons of an expression, in source order. */
 function comparisons(e: Expr): Cmp[] {
   switch (e.kind) {
