@@ -1,5 +1,6 @@
 import { activeBom, openDoc, resetView, type App, type State } from '../app';
-import { createDocument, type Bom } from '../model';
+import { createDocument, occurrencePath, type Bom } from '../model';
+import type { Occurrence } from '../resolve';
 import { parseXml, serializeXml } from '../xml';
 import { showImportCsvDialog, showItemTypesDialog, showStructureTypesDialog, showVariantFamiliesDialog, showUnsavedChangesDialog } from './dialogs';
 import { button, h, isMac } from './dom';
@@ -325,9 +326,41 @@ function viewItems(app: App): HTMLElement[] {
       app.commit(() => setHideExcluded(on)),
     ),
     h('hr'),
+    ...structureItems(app),
+    h('hr'),
     panel('config', 'Configuration', 'Show or hide the configuration panel'),
     panel('editor', 'Editor', 'Show or hide the editor panel'),
   ];
+}
+
+/** Collapse all, Expand all and Expand to level, for the selected row's subtree or, without a selection, the whole BOM. */
+function structureItems(app: App): HTMLElement[] {
+  const scope = app.state.selected ? "the selected row's subtree" : 'the whole BOM';
+  const noDoc = !app.state.doc;
+  const collapse = checkItem('Collapse all', false, `Collapse ${scope}`, () => expandTo(app, 0));
+  const expand = checkItem('Expand all', false, `Expand ${scope}`, () => expandTo(app, Infinity));
+  collapse.disabled = expand.disabled = noDoc;
+  const levels = Array.from({ length: 10 }, (_, i) =>
+    button({ title: `Show ${i + 1} level${i ? 's' : ''} of ${scope} and collapse the rest`, disabled: noDoc }, () => expandTo(app, i + 1), String(i + 1)),
+  );
+  return [collapse, expand, submenu('Expand to level', levels)];
+}
+
+/**
+ * Expands the selected row (or, without a selection, the root) and its descendants down to `levels` levels below it,
+ * and collapses the deeper ones: 0 collapses all, Infinity expands all.
+ */
+function expandTo(app: App, levels: number): void {
+  const { state } = app;
+  const top = app.occurrence(state.selected) ?? app.occurrence(occurrencePath(activeBom(state).id, []));
+  if (!top) return;
+  const walk = (occ: Occurrence, depth: number) => {
+    if (!occ.children.length) return;
+    if (depth < levels) state.collapsed.delete(occ.address);
+    else state.collapsed.add(occ.address);
+    occ.children.forEach((c) => walk(c, depth + 1));
+  };
+  app.view(() => walk(top, 0));
 }
 
 function themeItems(app: App): HTMLButtonElement[] {
