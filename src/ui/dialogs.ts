@@ -5,18 +5,23 @@ import {
   addBom,
   addFamily,
   addItemType,
+  addUom,
   BOM_TYPES,
+  DEFAULT_UOM,
   itemTypeUsage,
   migrateItemType,
   moveFamily,
   removeBom,
   removeFamily,
   removeItemType,
+  removeUom,
   renameFamily,
   renameItemType,
+  renameUom,
   setFamilyValues,
   setItemTypePrefix,
   sortedChildren,
+  uomUsage,
   type Bom,
   type BomDocument,
   type BomType,
@@ -57,6 +62,12 @@ export function showNewItemTypeDialog(onCreate: (name: string, prefix: string) =
   const name = requiredText();
   const prefix = h('input', { name: 'prefix', ...PREFIX });
   showFormDialog('Add item type', 'Add', [field('Name', name), field('ID prefix (optional)', prefix)], () => onCreate(name.value, prefix.value));
+}
+
+/** Asks for the name of a new unit of measure. */
+export function showNewUomDialog(onCreate: (name: string) => void): void {
+  const name = requiredText();
+  showFormDialog('Add unit', 'Add', [field('Name', name)], () => onCreate(name.value));
 }
 
 /**
@@ -131,6 +142,29 @@ export function showItemTypesDialog(app: App): void {
     const migrate = () =>
       from.value !== to.value && showMigrateItemTypeDialog(app, from.value, to.value, () => update(() => migrateItemType(doc, from.value, to.value)));
     return [grid, h('div', { className: 'migrate-row' }, h('span', {}, 'Migrate'), from, h('span', {}, '→'), to, button({ type: 'button' }, migrate, 'Migrate'))];
+  });
+}
+
+/** The document's units of measure, below the built-in default that items without a unit have. */
+export function showUomsDialog(app: App): void {
+  showEditDialog(app, 'Units of measure', (update) => {
+    const doc = openDoc(app.state);
+    const count = (n: number) => h('span', { className: 'muted' }, `${n} items`);
+    const builtIn = [
+      h('input', { value: DEFAULT_UOM, disabled: true, title: 'Unit of items that have none set' }),
+      count(uomUsage(doc, undefined)),
+      button({ className: 'icon danger', title: 'Built in', disabled: true }, () => {}, '✕'),
+    ];
+    const rows = doc.uoms.map((u, i) => {
+      const n = uomUsage(doc, u);
+      const name = input(`uom-${i}-name`, u, (v) => update(() => renameUom(doc, u, v)), { title: 'Unit name' });
+      const title = n ? `Used by ${n} items` : `Remove ${u}`;
+      const remove = button({ className: 'icon danger', title, disabled: n > 0 }, () => update(() => removeUom(doc, u)), '✕');
+      return [name, count(n), remove];
+    });
+    const newName = h('input', { name: 'new-uom', placeholder: 'New unit' });
+    const add = () => newName.value.trim() && update(() => addUom(doc, newName.value));
+    return [listGrid([builtIn, ...rows], [newName], add, 'uom-grid')];
   });
 }
 
@@ -252,7 +286,7 @@ export function showVariantFamiliesDialog(app: App): void {
 }
 
 /**
- * Preview of a CSV import (see importCsv): the new BOM's name and type, the item types and variant values it lacks
+ * Preview of a CSV import (see importCsv): the new BOM's name and type, the item types, units and variant values it lacks
  * (created when the box is checked), what it adds and its structure, or the problems found, with Create disabled.
  * Nothing changes until Create, which is one undo step.
  */
@@ -286,14 +320,15 @@ export function showImportCsvDialog(app: App, fileName: string, text: string): v
   render();
 }
 
-/** The checkbox and what it creates; nothing when the document has every type and value the CSV uses. */
-function missingList(doc: BomDocument, { types, values }: Missing, checkbox: HTMLInputElement): HTMLElement[] {
-  if (!types.length && !values.size) return [];
+/** The checkbox and what it creates; nothing when the document has every type, unit and value the CSV uses. */
+function missingList(doc: BomDocument, { types, uoms, values }: Missing, checkbox: HTMLInputElement): HTMLElement[] {
+  if (!types.length && !uoms.length && !values.size) return [];
   const lines = [
     ...types.map((t) => `Item type ${t.name}${t.prefix ? `, ID prefix ${t.prefix}` : ''}`),
+    ...(uoms.length ? [`Units ${uoms.join(', ')}`] : []),
     ...[...values].map(([f, vs]) => `${doc.families.some((x) => x.name === f) ? 'Values of' : 'Variant family'} ${f}: ${vs.join(', ')}`),
   ];
-  return [h('label', { className: 'check' }, checkbox, 'Create missing item types and variant values'), h('ul', { className: 'muted import-missing' }, ...lines.map((l) => h('li', {}, l)))];
+  return [h('label', { className: 'check' }, checkbox, 'Create missing item types, units and variant values'), h('ul', { className: 'muted import-missing' }, ...lines.map((l) => h('li', {}, l)))];
 }
 
 /** Counts and the structure tree, or the problems. */
@@ -323,6 +358,7 @@ function importPreview(doc: BomDocument, bom: Bom, reused: Set<string>): HTMLEle
         name,
         cell(item.id),
         cell(rel ? String(rel.qty) : '', 'num'),
+        cell(item.uom ?? DEFAULT_UOM),
         cell(rel?.findNo ?? '', 'num'),
         cell(rel?.variantExpr ?? '', 'expr'),
         cell(rel ? formatEffEnd(rel.eff, 'from') : '', 'eff'),
@@ -333,7 +369,7 @@ function importPreview(doc: BomDocument, bom: Bom, reused: Set<string>): HTMLEle
     for (const r of sortedChildren(bom, itemId)) addRow(r.childId, r, depth + 1);
   };
   addRow(bom.rootId, undefined, 0);
-  const head = ['Name', 'ID', 'Qty', 'Find no.', 'Variant', 'Eff. from', 'Eff. to', ''].map((t) => h('th', {}, t));
+  const head = ['Name', 'ID', 'Qty', 'UoM', 'Find no.', 'Variant', 'Eff. from', 'Eff. to', ''].map((t) => h('th', {}, t));
   return h('div', { className: 'import-preview' }, h('table', { className: 'tree-table' }, h('thead', {}, h('tr', {}, ...head)), h('tbody', {}, ...rows)));
 }
 

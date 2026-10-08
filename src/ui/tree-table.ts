@@ -1,10 +1,10 @@
 import { activeBom, openDoc, type App } from '../app';
 import { formatEffEnd } from '../effectivity';
 import { validate } from '../expr';
-import { lockedIdPrefix, moveRelations, occurrencePath, parentAddress, parseQty, renameItem, setItemType, updateItem, updateRelation } from '../model';
+import { DEFAULT_UOM, lockedIdPrefix, moveRelations, occurrencePath, parentAddress, parseQty, renameItem, setItemType, setItemUom, updateItem, updateRelation } from '../model';
 import { flatten, type Occurrence } from '../resolve';
 import { h } from './dom';
-import { typeSelect } from './editor';
+import { typeSelect, uomSelect } from './editor';
 import { attachExprCompletion } from './expr-complete';
 import { COLUMNS, isColumnShown, isHideExcluded } from './view';
 
@@ -65,7 +65,8 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   table.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
     const address = target.closest('tr')?.dataset.address;
-    if (!address) return;
+    // A click in an in-place edit field would re-render the row, which replaces the field and closes a picker's list.
+    if (!address || target.closest('.cell-edit')) return;
     if (target.closest('.twisty')) setCollapsed(address, !app.state.collapsed.has(address));
     else if (pane.extra && (e.ctrlKey || e.metaKey)) toggle(address);
     else if (pane.extra && e.shiftKey) selectRange(address);
@@ -137,11 +138,16 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
       setTimeout(() => startEdit(next.address, next.col!)); // after the save's re-render
     };
 
-    if (col === 'type') {
-      const picker = typeSelect(app, '', occ.item.type, (t) => setItemType(openDoc(app.state), occ.item.id, t));
+    if (col === 'type' || col === 'uom') {
+      const picker =
+        col === 'type'
+          ? typeSelect(app, '', occ.item.type, (t) => setItemType(openDoc(app.state), occ.item.id, t))
+          : uomSelect(app, '', occ.item.uom, (u) => setItemUom(openDoc(app.state), occ.item.id, u));
       picker.addEventListener('keydown', (ke) => keydown(ke));
       picker.addEventListener('change', done);
-      picker.addEventListener('blur', () => app.commit()); // restores the cell when nothing was picked
+      // Restores the cell when nothing was picked. On macOS the open list is a window of its own, which blurs the
+      // picker with the page losing focus; restoring then would close the list as it opens.
+      picker.addEventListener('blur', () => document.hasFocus() && app.commit());
       return edit(host, picker, width);
     }
 
@@ -404,7 +410,8 @@ function cellSaver(app: App, occ: Occurrence, col: string): ((v: string) => void
     case 'id':
       return (v) => renameItem(doc, item.id, v);
     case 'type':
-      return () => {}; // saved by the type picker
+    case 'uom':
+      return () => {}; // saved by the picker
     case 'qty':
       return setRel && ((v) => setRel({ qty: parseQty(v, rel.qty) }));
     case 'findNo':
@@ -429,6 +436,7 @@ function cellTexts(occ: Occurrence): string[] {
     occ.item.id,
     occ.item.type ?? '',
     rel ? String(rel.qty) : '',
+    occ.item.uom ?? DEFAULT_UOM,
     rel?.findNo ?? '',
     rel?.variantExpr ?? '',
     rel ? formatEffEnd(rel.eff, 'from') : '',
@@ -438,7 +446,7 @@ function cellTexts(occ: Occurrence): string[] {
 
 function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelected: boolean): HTMLTableRowElement {
   const rel = occ.relation;
-  const [label, id, type, qty, findNo, variant, effFrom, effTo] = cellTexts(occ);
+  const [label, id, type, qty, uom, findNo, variant, effFrom, effTo] = cellTexts(occ);
   const twisty = occ.children.length
     ? h('span', { className: 'twisty', title: isCollapsed ? `Expand (${occ.children.length})` : 'Collapse' }, isCollapsed ? '▸' : '▾')
     : h('span', { className: 'twisty leaf' });
@@ -456,6 +464,7 @@ function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelec
     h('td', { className: 'id', dataset: { col: 'id' } }, id),
     h('td', { className: 'type', dataset: { col: 'type' } }, type),
     h('td', { className: 'num', dataset: { col: 'qty' } }, qty),
+    h('td', { className: 'uom', dataset: { col: 'uom' } }, uom),
     h('td', { className: 'num', dataset: { col: 'findNo' } }, findNo),
     h('td', { className: 'expr', title: variant, dataset: { col: 'variant' } }, h('span', {}, variant)),
     h('td', { className: 'eff' }, effFrom),

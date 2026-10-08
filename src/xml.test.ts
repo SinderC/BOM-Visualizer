@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ITEM_TYPES } from './model';
+import { DEFAULT_ITEM_TYPES, DEFAULT_UOMS } from './model';
 import { parseXml, serializeXml } from './xml';
 import sample from './samples/car.xml?raw';
 
@@ -47,6 +47,19 @@ describe('xml', () => {
     const legacy = parseXml(old);
     expect(legacy.itemTypes).toEqual(DEFAULT_ITEM_TYPES);
     expect(legacy.items.get('S-1')!.type).toBeUndefined();
+  });
+
+  it('reads units and falls back to defaults for older files', () => {
+    const doc = parseXml(sample);
+    expect(doc.items.get('P-11')!.uom).toBe('l');
+    expect(doc.items.get('P-1')!.uom).toBeUndefined();
+    expect(parseXml(sample.replace('<item id="P-1" type="Part"', '<item id="P-1" type="Part" uom="each"')).items.get('P-1')!.uom).toBeUndefined();
+    doc.uoms = [];
+    doc.items.get('P-11')!.uom = doc.items.get('P-12')!.uom = undefined;
+    expect(parseXml(serializeXml(doc)).uoms).toEqual([]);
+    const legacy = parseXml(sample.replace(/<uoms>[\s\S]*<\/uoms>/, '').replace(/ uom="[^"]*"/g, ''));
+    expect(legacy.uoms).toEqual(DEFAULT_UOMS);
+    expect(() => parseXml(sample.replace('<uom>l</uom>', ''))).toThrow(/P-11: unknown unit 'l'/);
   });
 
   it('accepts a BOM without a type', () => {

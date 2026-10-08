@@ -10,8 +10,12 @@ One XML file holds one `<bomDocument>`: shared variant families and items, one o
   <itemTypes>
     <type>Part</type><type>Assembly</type>
   </itemTypes>
+  <uoms>
+    <uom>kg</uom><uom>m</uom>
+  </uoms>
   <items>
     <item id="A-1" type="Assembly" name="Car" description="optional"/>
+    <item id="P-7" type="Part" uom="m" name="Fuel hose"/>
   </items>
   <bom id="EBOM" name="Engineering BOM" root="A-1">
     <relations>
@@ -34,7 +38,8 @@ One XML file holds one `<bomDocument>`: shared variant families and items, one o
 | `bomDocument@version` | Format version. Readers reject versions newer than they support. |
 | `family` | `name` + ordered `<value>` list. Shared by all BOMs. |
 | `itemTypes` | Ordered list of allowed item `<type>` names. Optional; if absent, the defaults `Part Revision`, `Design Revision` apply. |
-| `item` | Part identity (`id`, `type`, `name`, `description`). `type` is optional and must be listed in `itemTypes`. Shared by all BOMs; may be used under many parents. |
+| `uoms` | Ordered list of units of measure (`<uom>`) besides the built-in `each`. Optional; if absent, the defaults `kg`, `g`, `m`, `mm`, `m²`, `l` apply. |
+| `item` | Part identity (`id`, `type`, `uom`, `name`, `description`). `type` is optional and must be listed in `itemTypes`. `uom` is optional and must be listed in `uoms`; absent (or `each`) = each. Relation quantities are in the child item's unit. Shared by all BOMs; may be used under many parents. |
 | `bom` | `id`, `name`, `root` (item id). Holds its own relations. |
 | `relation` | Parent→child usage: `id`, `parent`, `child`, `qty`, `findNo`. **Relation ids are unique across the whole document.** |
 | `variant` | Optional boolean expression (see below). Missing/blank = always included. |
@@ -74,24 +79,25 @@ NAME    := [A-Za-z0-9_.-]+ | '"' any character except '"' '"'
 File > Import from CSV… builds a new BOM from rows of parent→child pairs. A preview shows what will be added (relations, new and reused items, the indented structure) and lets you set the BOM's name, prefilled from the file name, and type; nothing changes until Create.
 
 ```csv
-Parent,ID,Name,Type,Description,Qty,FindNo,Variant,EffDateFrom,EffDateTo,EffUnitFrom,EffUnitTo
-,A-100,Chassis,Assembly,Rolling chassis,,,,,,,
-A-100,P-200,Wheel,Part,,4,10,,,,,
-P-200,P-300,Wheel bolt,Part,M12x1.5,5,10,,,,,
-A-100,P-400,Engine V8,Part,,1,20,ENGINE=V8,2026-01-01,,,
-A-100,P-410,Engine V6,Part,,1,20,"ENGINE=V6 AND MARKET IN (EU, US)",,2027-06-30,10,UP
-A-100,P-300,Wheel bolt,Part,,8,,,,,,
+Parent,ID,Name,Type,UoM,Description,Qty,FindNo,Variant,EffDateFrom,EffDateTo,EffUnitFrom,EffUnitTo
+,A-100,Chassis,Assembly,,Rolling chassis,,,,,,,
+A-100,P-200,Wheel,Part,,,4,10,,,,,
+P-200,P-300,Wheel bolt,Part,,M12x1.5,5,10,,,,,
+A-100,P-400,Engine V8,Part,,,1,20,ENGINE=V8,2026-01-01,,,
+A-100,P-410,Engine V6,Part,,,1,20,"ENGINE=V6 AND MARKET IN (EU, US)",,2027-06-30,10,UP
+A-100,P-300,Wheel bolt,Part,,,8,,,,,,
+A-100,P-500,Engine oil,Part,l,,5.5,30,,,,,
 ```
 
 - A header row names the columns, in any order; case, spaces, dots, dashes and underscores are ignored (`Find No.` = `FindNo`). Only `Parent` and `ID` are required; other columns are ignored.
 - The delimiter is `;` when the header has more semicolons than commas (as Excel saves in many European locales), else `,`. Fields with the delimiter, quotes or line breaks are quoted (`"…"`, `""` for a quote).
 - Exactly one row has a blank `Parent`: the BOM root. Its relation columns are ignored.
 - Every other row is one relation; the same pair on several rows is several usages. Each `Parent` must be the `ID` of some row.
-- An `ID` already in the document reuses that item, unchanged. A new one is created from the first row with it; `Type` may be blank.
+- An `ID` already in the document reuses that item, unchanged. A new one is created from the first row with it; `Type` may be blank, and `UoM` blank = each.
 - `Qty` blank = 1; `FindNo` blank = next after the highest under the parent. `Variant` uses the expression syntax below.
-- Item types, variant families and values the document lacks are listed in the preview under **Create missing item types and variant values** (checked by default); unchecked, they are problems. A new type's ID prefix is the start its items' IDs share up to the first digit (`G-100`, `G-101` → `G-`); new values are added after the family's existing ones. Effectivity as in the XML: `yyyy-mm-dd`, whole units of 1 or more, `UP` or blank = open.
+- Item types, units, variant families and values the document lacks are listed in the preview under **Create missing item types, units and variant values** (checked by default); unchecked, they are problems. A new type's ID prefix is the start its items' IDs share up to the first digit (`G-100`, `G-101` → `G-`); new values are added after the family's existing ones. Effectivity as in the XML: `yyyy-mm-dd`, whole units of 1 or more, `UP` or blank = open.
 - Any error blocks Create; the preview lists the problems by spreadsheet row number instead. The import is one undo step.
 
 ## Load-time checks
 
-Well-formed XML, `<bomDocument>` root, supported version, at least one BOM, unique item and relation ids, known item types, existing parent/child/root references, no cycles within a BOM.
+Well-formed XML, `<bomDocument>` root, supported version, at least one BOM, unique item and relation ids, known item types and units, existing parent/child/root references, no cycles within a BOM.

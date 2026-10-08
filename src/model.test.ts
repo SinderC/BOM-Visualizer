@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, removeBom, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelation, createDocument, moveRelation, moveRelations, sortedChildren, nextId, parseQty, parseUnit, moveFamily, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
+import { addUom, DEFAULT_UOMS, removeUom, renameUom, setItemUom, uomUsage, addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, removeBom, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelation, createDocument, moveRelation, moveRelations, sortedChildren, nextId, parseQty, parseUnit, moveFamily, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -224,6 +224,37 @@ describe('model', () => {
     expect(() => removeItemType(doc, 'Component')).toThrow(/used by 1 items/);
     removeItemType(doc, 'Design Revision');
     expect(doc.itemTypes.map((t) => t.name)).toEqual(['Component']);
+  });
+
+  it('sets item units, with each as unset, and flags unknown ones', () => {
+    const { doc, a } = setup();
+    expect(doc.uoms).toEqual(DEFAULT_UOMS);
+    setItemUom(doc, a.id, ' kg ');
+    expect(a.uom).toBe('kg');
+    setItemUom(doc, a.id, 'each');
+    expect(a.uom).toBeUndefined();
+    expect(() => setItemUom(doc, a.id, 'pallet')).toThrow(/Unknown unit pallet/);
+    expect(addUom(doc, ' pallet ')).toBe('pallet');
+    expect(addUom(doc, 'each')).toBeUndefined();
+    addUom(doc, 'pallet');
+    expect(doc.uoms.filter((u) => u === 'pallet' || u === 'each')).toEqual(['pallet']);
+    expect(() => addUom(doc, ' ')).toThrow(/empty/);
+    a.uom = 'nope';
+    expect(validateDocument(doc)).toContain(`Item ${a.id}: unknown unit 'nope'`);
+  });
+
+  it('renames units on items and removes only unused ones', () => {
+    const { doc, a, b } = setup();
+    a.uom = 'm';
+    expect([uomUsage(doc, 'm'), uomUsage(doc, undefined)]).toEqual([1, 2]); // b and the root are each
+    renameUom(doc, 'm', ' meter ');
+    expect([a.uom, b.uom, doc.uoms[2]]).toEqual(['meter', undefined, 'meter']);
+    expect(() => renameUom(doc, 'meter', 'kg')).toThrow(/empty or already used/);
+    expect(() => renameUom(doc, 'meter', 'each')).toThrow(/empty or already used/);
+    expect(() => renameUom(doc, 'nope', 'x')).toThrow(/Unknown unit nope/);
+    expect(() => removeUom(doc, 'meter')).toThrow(/used by 1 items/);
+    removeUom(doc, 'kg');
+    expect(doc.uoms).not.toContain('kg');
   });
 
   it('migrates items to another type, renumbering taken ids, and removes the old type', () => {

@@ -4,15 +4,19 @@ import {
   addFamily,
   addItem,
   addItemType,
+  addUom,
   cycleError,
   nextId,
   setFamilyValues,
   type ItemType,
   isIsoDate,
   isUnit,
+  normalizeUom,
   parseQty,
+  setItemUom,
   type Bom,
   type BomDocument,
+  DEFAULT_UOM,
   type Effectivity,
   type Relation,
 } from './model';
@@ -54,9 +58,10 @@ export function parseCsv(text: string): string[][] {
 /** Header names are matched ignoring case, spaces, dots, dashes and underscores: `Find No.` = `FindNo`. */
 const normalize = (name: string) => name.toLowerCase().replace(/[\s._-]/g, '');
 
-/** Item types, and variant values by family, that the CSV uses but the document lacks. A family not in it is new. */
+/** Item types, units, and variant values by family, that the CSV uses but the document lacks. A family not in it is new. */
 export interface Missing {
   types: ItemType[];
+  uoms: string[];
   values: Map<string, string[]>;
 }
 
@@ -65,14 +70,14 @@ export type CsvImport = ({ doc: BomDocument; bom: Bom; reused: Set<string> } | {
 type Line = { row: number; get: (name: string) => string };
 
 /**
- * Builds a new BOM from CSV rows of Parent, ID and optional Name, Type, Description, Qty, FindNo, Variant,
+ * Builds a new BOM from CSV rows of Parent, ID and optional Name, Type, UoM, Description, Qty, FindNo, Variant,
  * EffDateFrom, EffDateTo, EffUnitFrom, EffUnitTo (see docs/schema.md). The row with a blank Parent is the root; every
  * other row is a relation. IDs already in the document reuse that item (`reused`). Works on a copy of `doc` and
  * returns it with the new BOM, or every problem by spreadsheet row number; `doc` is left unchanged. Either way lists
- * the item types and variant values it lacks; with `createMissing` they are added, else they are problems.
+ * the item types, units and variant values it lacks; with `createMissing` they are added, else they are problems.
  */
 export function importCsv(doc: BomDocument, text: string, bomName: string, createMissing = false): CsvImport {
-  const fatal = (message: string): CsvImport => ({ errors: [message], missing: { types: [], values: new Map() } });
+  const fatal = (message: string): CsvImport => ({ errors: [message], missing: { types: [], uoms: [], values: new Map() } });
   let table: string[][];
   try {
     table = parseCsv(text);
@@ -90,6 +95,7 @@ export function importCsv(doc: BomDocument, text: string, bomName: string, creat
   const missing = findMissing(doc, lines);
   if (createMissing) {
     for (const t of missing.types) addItemType(draft, t.name, t.prefix);
+    for (const u of missing.uoms) addUom(draft, u);
     for (const [name, values] of missing.values) {
       const family = draft.families.find((f) => f.name === name);
       if (family) setFamilyValues(draft, name, [...family.values, ...values]);
@@ -114,8 +120,13 @@ export function importCsv(doc: BomDocument, text: string, bomName: string, creat
       fail(l.row, `unknown type '${type}' (known: ${draft.itemTypes.map((t) => t.name).join(', ')})`);
       continue;
     }
+    const uom = normalizeUom(l.get('UoM'));
+    if (uom !== undefined && !draft.uoms.includes(uom)) {
+      fail(l.row, `unknown unit '${uom}' (known: ${[DEFAULT_UOM, ...draft.uoms].join(', ')})`);
+      continue;
+    }
     try {
-      addItem(draft, l.get('Name'), l.get('Description'), type, id);
+      setItemUom(draft, addItem(draft, l.get('Name'), l.get('Description'), type, id).id, uom);
     } catch (e) {
       fail(l.row, (e as Error).message);
     }
@@ -152,11 +163,12 @@ export function importCsv(doc: BomDocument, text: string, bomName: string, creat
 }
 
 /**
- * Types of new items and variant values of relations that the document lacks, in order of first use. A new type's ID
+ * Types and units of new items and variant values of relations that the document lacks, in order of first use. A new type's ID
  * prefix is the start its items' IDs share, up to the first digit or space: G-100 and G-101 give `G-`.
  */
 function findMissing(doc: BomDocument, lines: Line[]): Missing {
   const typeIds = new Map<string, string[]>();
+  const uoms = new Set<string>();
   const seen = new Set<string>();
   const values = new Map<string, string[]>();
   for (const l of lines) {
@@ -165,6 +177,8 @@ function findMissing(doc: BomDocument, lines: Line[]): Missing {
     if (id && !seen.has(id) && !doc.items.has(id) && type && !doc.itemTypes.some((t) => t.name === type)) {
       typeIds.set(type, [...(typeIds.get(type) ?? []), id]);
     }
+    const uom = normalizeUom(l.get('UoM'));
+    if (id && !seen.has(id) && !doc.items.has(id) && uom !== undefined && !doc.uoms.includes(uom)) uoms.add(uom);
     seen.add(id);
     if (!l.get('Parent')) continue; // the root row has no relation
     for (const cmp of exprNames(l.get('Variant'))) {
@@ -175,7 +189,7 @@ function findMissing(doc: BomDocument, lines: Line[]): Missing {
     }
   }
   const types = [...typeIds].map(([name, ids]) => ({ name, prefix: commonStart(ids).match(/^[^\d\s]*/)![0] }));
-  return { types, values };
+  return { types, uoms: [...uoms], values };
 }
 
 /** True if `to` is `from` or below it, following `children` (item id → child item ids). */

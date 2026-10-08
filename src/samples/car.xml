@@ -10,6 +10,14 @@
     <type prefix="A-">Assembly</type>
     <type prefix="S-">Station</type>
   </itemTypes>
+  <uoms>
+    <uom>kg</uom>
+    <uom>g</uom>
+    <uom>m</uom>
+    <uom>mm</uom>
+    <uom>m²</uom>
+    <uom>l</uom>
+  </uoms>
   <items>
     <item id="A-1" type="Assembly" name="Car" description="Concept vehicle"/>
     <item id="A-2" type="Assembly" name="Body"/>
@@ -25,6 +33,8 @@
     <item id="P-8" type="Part" name="Bolt M8" description="Reused in several places"/>
     <item id="P-9" type="Part" name="Emission Kit EU"/>
     <item id="P-10" type="Part" name="Emission Kit US"/>
+    <item id="P-11" type="Part" uom="l" name="Engine Oil"/>
+    <item id="P-12" type="Part" uom="m" name="Brake Line"/>
     <item id="A-5" type="Assembly" name="Chassis"/>
     <item id="A-6" type="Assembly" name="Interior"/>
     <item id="S-1" type="Station" name="Body Shop"/>
@@ -62,7 +72,11 @@
         <variant>MARKET=US AND ENGINE!=EV</variant>
         <effectivity unitFrom="1" unitTo="499"/>
       </relation>
+      <relation id="R17" parent="A-3" child="P-11" qty="5.5" findNo="80">
+        <variant>ENGINE!=EV</variant>
+      </relation>
       <relation id="R10" parent="A-5" child="P-5" qty="4" findNo="10"/>
+      <relation id="R18" parent="A-5" child="P-12" qty="4.2" findNo="20"/>
       <relation id="R11" parent="P-5" child="P-8" qty="5" findNo="10"/>
       <relation id="R12" parent="A-2" child="P-8" qty="24" findNo="10"/>
       <relation id="R13" parent="A-6" child="P-6" qty="5" findNo="10">

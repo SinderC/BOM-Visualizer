@@ -12,6 +12,7 @@ export interface Item {
   name: string;
   description: string;
   type?: string; // name of one of BomDocument.itemTypes
+  uom?: string; // unit of measure, one of BomDocument.uoms; undefined = DEFAULT_UOM
 }
 
 export interface ItemType {
@@ -59,8 +60,15 @@ export const DEFAULT_ITEM_TYPES: readonly ItemType[] = [
   { name: 'Design Revision', prefix: 'D-' },
 ];
 
+/** Unit of measure of items that have none set. Built in: never stored in BomDocument.uoms or on an item. */
+export const DEFAULT_UOM = 'each';
+
+/** Starting unit list for new documents and for files written before units existed; DEFAULT_UOM comes on top. */
+export const DEFAULT_UOMS: readonly string[] = ['kg', 'g', 'm', 'mm', 'm²', 'l'];
+
 export interface BomDocument {
   itemTypes: ItemType[];
+  uoms: string[]; // units items can have besides DEFAULT_UOM
   items: Map<string, Item>;
   families: OptionFamily[];
   boms: Bom[];
@@ -96,7 +104,14 @@ export function isOccurrence(doc: BomDocument, address: string): boolean {
 }
 
 export function createDocument(): BomDocument {
-  const doc: BomDocument = { itemTypes: DEFAULT_ITEM_TYPES.map((t) => ({ ...t })), items: new Map(), families: [], boms: [], alignments: [] };
+  const doc: BomDocument = {
+    itemTypes: DEFAULT_ITEM_TYPES.map((t) => ({ ...t })),
+    uoms: [...DEFAULT_UOMS],
+    items: new Map(),
+    families: [],
+    boms: [],
+    alignments: [],
+  };
   addBom(doc, 'Main', 'EBOM');
   return doc;
 }
@@ -296,6 +311,50 @@ export function removeItemType(doc: BomDocument, name: string): void {
   const n = itemTypeUsage(doc, name);
   if (n) throw new Error(`Type ${name} is used by ${n} items`);
   doc.itemTypes = doc.itemTypes.filter((t) => t.name !== name);
+}
+
+/** A unit name as stored: trimmed, and undefined for blank or DEFAULT_UOM. */
+export function normalizeUom(uom: string | undefined): string | undefined {
+  const u = uom?.trim();
+  return u && u !== DEFAULT_UOM ? u : undefined;
+}
+
+/** Sets an item's unit of measure; blank or DEFAULT_UOM clears it. */
+export function setItemUom(doc: BomDocument, id: string, uom: string | undefined): void {
+  const item = doc.items.get(id);
+  if (!item) return;
+  const u = normalizeUom(uom);
+  if (u !== undefined && !doc.uoms.includes(u)) throw new Error(`Unknown unit ${u}`);
+  item.uom = u;
+}
+
+/** Adds a unit to the document's list unless it is there or is DEFAULT_UOM; returns the stored name, undefined for DEFAULT_UOM. */
+export function addUom(doc: BomDocument, name: string): string | undefined {
+  if (!name.trim()) throw new Error('Unit name is empty');
+  const u = normalizeUom(name);
+  if (u !== undefined && !doc.uoms.includes(u)) doc.uoms.push(u);
+  return u;
+}
+
+/** Number of items with the unit; undefined counts those with DEFAULT_UOM. */
+export function uomUsage(doc: BomDocument, uom: string | undefined): number {
+  return [...doc.items.values()].filter((i) => i.uom === uom).length;
+}
+
+/** Renames a unit in place and on every item that has it. */
+export function renameUom(doc: BomDocument, oldName: string, newName: string): void {
+  const u = normalizeUom(newName);
+  if (u === undefined || (u !== oldName && doc.uoms.includes(u))) throw new Error(`Unit name '${newName.trim()}' is empty or already used`);
+  const i = doc.uoms.indexOf(oldName);
+  if (i < 0) throw new Error(`Unknown unit ${oldName}`);
+  doc.uoms[i] = u;
+  for (const item of doc.items.values()) if (item.uom === oldName) item.uom = u;
+}
+
+export function removeUom(doc: BomDocument, name: string): void {
+  const n = uomUsage(doc, name);
+  if (n) throw new Error(`Unit ${name} is used by ${n} items`);
+  doc.uoms = doc.uoms.filter((u) => u !== name);
 }
 
 function getFamily(doc: BomDocument, name: string): OptionFamily {
@@ -555,6 +614,7 @@ export function validateDocument(doc: BomDocument): string[] {
   }
   for (const item of doc.items.values()) {
     if (item.type && !findItemType(doc, item.type)) errors.push(`Item ${item.id}: unknown type '${item.type}'`);
+    if (item.uom && !doc.uoms.includes(item.uom)) errors.push(`Item ${item.id}: unknown unit '${item.uom}'`);
   }
   for (const bom of doc.boms) {
     if (bomIds.has(bom.id)) errors.push(`Duplicate BOM id ${bom.id}`);

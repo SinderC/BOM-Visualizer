@@ -4,7 +4,9 @@ import {
   addItem,
   addItemType,
   addRelation,
+  addUom,
   DEFAULT_ITEM_TYPES,
+  DEFAULT_UOM,
   lockedIdPrefix,
   nextItemId,
   occurrencePath,
@@ -14,6 +16,7 @@ import {
   removeRelation,
   renameItem,
   setItemType,
+  setItemUom,
   typeIdPrefix,
   updateItem,
   updateRelation,
@@ -21,7 +24,7 @@ import {
   type Relation,
 } from '../model';
 import type { Occurrence, Status } from '../resolve';
-import { showConfirmDialog, showNewItemTypeDialog } from './dialogs';
+import { showConfirmDialog, showNewItemTypeDialog, showNewUomDialog } from './dialogs';
 import { button, dateField, field, h, input, isMac } from './dom';
 import { attachExprCompletion } from './expr-complete';
 import { isSectionOpen, setSectionOpen } from './view';
@@ -36,13 +39,40 @@ const STATUS_TEXT: Record<Status, string> = {
 /** Codes and numbers in Geist Mono, matching the tree-table. */
 const MONO = { className: 'mono' };
 const UNIT = { type: 'number', min: '1', step: '1' };
-const NEW_TYPE = '\0new'; // select value of the "New type…" entry; cannot clash with a real type name
-const MIXED = '\0mixed'; // select value shown while selected items have different types
+const NEW = '\0new'; // select value of the "New …" entry; cannot clash with a real name
+const MIXED = '\0mixed'; // select value shown while selected items have different values
 
 /**
- * Item type picker with a "New type…" entry that adds a type to the document via a dialog.
- * With `mixed`, it shows "— mixed —" until a type is picked.
+ * Picker of a document list: `unset` labels the empty choice (value undefined), then `names`, then a `newLabel` entry
+ * that asks for a new name with `askNew`. With `mixed`, it shows "— mixed —" until something is picked.
  */
+function listSelect(
+  app: App,
+  name: string,
+  { unset, names, newLabel, askNew }: { unset: string; names: string[]; newLabel: string; askNew: (pick: (v: string | undefined) => void) => void },
+  value: string | undefined,
+  onPick: (value: string | undefined) => void,
+  mixed: boolean,
+): HTMLSelectElement {
+  const select = h(
+    'select',
+    { name, className: 'type-select' },
+    ...(mixed ? [h('option', { value: MIXED, disabled: true }, '— mixed —')] : []),
+    h('option', { value: '' }, unset),
+    ...names.map((n) => h('option', { value: n }, n)),
+    h('option', { value: NEW }, newLabel),
+  );
+  const initial = mixed ? MIXED : (value ?? '');
+  select.value = initial;
+  select.addEventListener('change', () => {
+    if (select.value !== NEW) return app.commit(() => onPick(select.value || undefined));
+    select.value = initial; // stays correct if the dialog is cancelled
+    askNew((v) => app.tryCommit(() => onPick(v)));
+  });
+  return select;
+}
+
+/** Item type picker with a "New type…" entry that adds a type to the document via a dialog. */
 export function typeSelect(
   app: App,
   name: string,
@@ -51,22 +81,21 @@ export function typeSelect(
   mixed = false,
 ): HTMLSelectElement {
   const doc = openDoc(app.state);
-  const select = h(
-    'select',
-    { name, className: 'type-select' },
-    ...(mixed ? [h('option', { value: MIXED, disabled: true }, '— mixed —')] : []),
-    h('option', { value: '' }, '—'),
-    ...doc.itemTypes.map((t) => h('option', { value: t.name }, t.name)),
-    h('option', { value: NEW_TYPE }, 'New type…'),
-  );
-  const initial = mixed ? MIXED : (value ?? '');
-  select.value = initial;
-  select.addEventListener('change', () => {
-    if (select.value !== NEW_TYPE) return app.commit(() => onPick(select.value || undefined));
-    select.value = initial; // stays correct if the dialog is cancelled
-    showNewItemTypeDialog((type, prefix) => app.tryCommit(() => onPick(addItemType(doc, type, prefix))));
-  });
-  return select;
+  const askNew = (pick: (v: string) => void) => showNewItemTypeDialog((type, prefix) => pick(addItemType(doc, type, prefix)));
+  return listSelect(app, name, { unset: '—', names: doc.itemTypes.map((t) => t.name), newLabel: 'New type…', askNew }, value, onPick, mixed);
+}
+
+/** Unit of measure picker: DEFAULT_UOM (undefined) first, and a "New unit…" entry that adds a unit to the document. */
+export function uomSelect(
+  app: App,
+  name: string,
+  value: string | undefined,
+  onPick: (uom: string | undefined) => void,
+  mixed = false,
+): HTMLSelectElement {
+  const doc = openDoc(app.state);
+  const askNew = (pick: (v: string | undefined) => void) => showNewUomDialog((uom) => pick(addUom(doc, uom)));
+  return listSelect(app, name, { unset: DEFAULT_UOM, names: doc.uoms, newLabel: 'New unit…', askNew }, value, onPick, mixed);
 }
 
 /**
@@ -120,12 +149,14 @@ function itemSection(app: App, occ: Occurrence): HTMLElement[] {
   const idControl = prefix ? h('div', { className: 'id-input' }, h('span', { className: 'mono muted' }, prefix), id) : id;
 
   const type = typeSelect(app, 'item-type', item.type, (t) => setItemType(doc, item.id, t));
+  const uom = uomSelect(app, 'item-uom', item.uom, (u) => setItemUom(doc, item.id, u));
+  uom.title = "Unit of measure; the quantities of the item's relations are in it";
 
   return [
     section(
       'item',
       ['Item'],
-      h('div', { className: 'row' }, field('ID', idControl), field('Type', type)),
+      h('div', { className: 'row' }, field('ID', idControl), field('Type', type), field('UoM', uom)),
       field('Name', input('item-name', item.name, (v) => app.commit(() => updateItem(doc, item.id, { name: v || item.name })))),
       field('Description', description),
       h('p', { className: 'muted' }, `Used by ${uses} relation${uses === 1 ? '' : 's'} across all BOMs; item edits apply everywhere.`),
@@ -186,22 +217,24 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
   ];
 }
 
-/** Edits for several selected rows: the type of their items, and removing them from their parents. */
+/** Edits for several selected rows: the type and unit of their items, and removing them from their parents. */
 function multiSection(app: App, focused: Occurrence): HTMLElement[] {
   const doc = openDoc(app.state);
   const occs = [focused, ...app.state.extraSelected.map((a) => app.occurrence(a)!)];
   const itemIds = [...new Set(occs.map((o) => o.item.id))];
   const relIds = [...new Set(occs.flatMap((o) => (o.relation ? [o.relation.id] : [])))];
   const types = new Set(itemIds.map((id) => doc.items.get(id)!.type));
+  const uoms = new Set(itemIds.map((id) => doc.items.get(id)!.uom));
 
   // Items, not ids: an id changes with the type prefix.
   const items = itemIds.map((id) => doc.items.get(id)!);
   const type = typeSelect(app, 'multi-type', [...types][0], (t) => items.forEach((i) => setItemType(doc, i.id, t)), types.size > 1);
+  const uom = uomSelect(app, 'multi-uom', [...uoms][0], (u) => items.forEach((i) => setItemUom(doc, i.id, u)), uoms.size > 1);
 
   const out: HTMLElement[] = [
     h('h2', {}, `${occs.length} rows selected`),
     h('p', { className: 'muted' }, `${itemIds.length} item${itemIds.length === 1 ? '' : 's'}; item edits apply everywhere.`),
-    section('item', ['Item'], field('Type', type)),
+    section('item', ['Item'], h('div', { className: 'row' }, field('Type', type), field('UoM', uom))),
   ];
   if (relIds.length) {
     const remove = () =>

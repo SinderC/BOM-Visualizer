@@ -17,6 +17,7 @@ export const COLUMNS = [
   { key: 'id', label: 'ID' },
   { key: 'type', label: 'Type' },
   { key: 'qty', label: 'Qty' },
+  { key: 'uom', label: 'UoM' },
   { key: 'findNo', label: 'Find no.' },
   { key: 'variant', label: 'Variant' },
   { key: 'effFrom', label: 'Eff. from' },

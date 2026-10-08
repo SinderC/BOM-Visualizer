@@ -1,17 +1,18 @@
-Parent,ID,Name,Type,Description,Qty,FindNo,Variant,EffDateFrom,EffDateTo,EffUnitFrom,EffUnitTo
-,A-100,Trailer,Assembly,Tow trailer for the concept vehicle,,,,,,,
-A-100,A-101,Frame,Assembly,,1,10,,,,,
-A-101,P-100,Drawbar,Part,Welded steel,1,10,,,,,
-A-101,P-101,Cross member,Part,,3,20,,,,,
-A-101,P-8,,,,12,30,,,,,
-A-100,A-102,Axle,Assembly,,1,20,,,,,
-A-102,P-5,,,,2,10,,,,,
-A-102,P-102,Leaf spring,Part,,2,20,,,,,
-A-102,P-103,Brake kit,Part,Overrun brake,1,30,MARKET=EU,2026-01-01,,,
-A-102,P-8,,,,8,40,,,,,
-A-100,A-103,Lighting,Assembly,,1,30,,,,,
-A-103,P-104,Tail light EU,Part,,2,10,MARKET=EU,,,,
-A-103,P-105,Tail light US,Part,,2,10,MARKET=US,,,,
-A-103,P-106,"Wiring harness, 7-pin",Part,,1,20,"ENGINE IN (V6, V8)",,2027-06-30,,
-A-103,P-107,"Wiring harness, 13-pin",Part,,1,20,ENGINE=EV,2026-07-01,,100,UP
-A-100,P-108,Cargo net,Part,,1,40,TRIM=SPORT,,,1,499
+Parent,ID,Name,Type,UoM,Description,Qty,FindNo,Variant,EffDateFrom,EffDateTo,EffUnitFrom,EffUnitTo
+,A-100,Trailer,Assembly,,Tow trailer for the concept vehicle,,,,,,,
+A-100,A-101,Frame,Assembly,,,1,10,,,,,
+A-101,P-100,Drawbar,Part,,Welded steel,1,10,,,,,
+A-101,P-101,Cross member,Part,,,3,20,,,,,
+A-101,P-8,,,,,12,30,,,,,
+A-100,A-102,Axle,Assembly,,,1,20,,,,,
+A-102,P-5,,,,,2,10,,,,,
+A-102,P-102,Leaf spring,Part,,,2,20,,,,,
+A-102,P-103,Brake kit,Part,,Overrun brake,1,30,MARKET=EU,2026-01-01,,,
+A-102,P-109,Wheel bearing grease,Part,kg,,0.2,50,,,,,
+A-102,P-8,,,,,8,40,,,,,
+A-100,A-103,Lighting,Assembly,,,1,30,,,,,
+A-103,P-104,Tail light EU,Part,,,2,10,MARKET=EU,,,,
+A-103,P-105,Tail light US,Part,,,2,10,MARKET=US,,,,
+A-103,P-106,"Wiring harness, 7-pin",Part,,,1,20,"ENGINE IN (V6, V8)",,2027-06-30,,
+A-103,P-107,"Wiring harness, 13-pin",Part,,,1,20,ENGINE=EV,2026-07-01,,100,UP
+A-100,P-108,Cargo net,Part,,,1,40,TRIM=SPORT,,,1,499

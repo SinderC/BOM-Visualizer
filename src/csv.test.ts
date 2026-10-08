@@ -100,7 +100,7 @@ describe('csv', () => {
       'G-1,P-1,Widget,MARKET=',
     ].join('\n');
     const doc = parseXml(sample);
-    const missing = { types: [{ name: 'Gizmo', prefix: 'G-' }], values: new Map([['COLOR', ['RED', 'BLUE']], ['ENGINE', ['V12']]]) };
+    const missing = { types: [{ name: 'Gizmo', prefix: 'G-' }], uoms: [], values: new Map([['COLOR', ['RED', 'BLUE']], ['ENGINE', ['V12']]]) };
     const rejected = importCsv(doc, csv, 'X');
     expect(rejected.missing).toEqual(missing); // not RED from the root row, not Widget for existing P-1
     expect('errors' in rejected && rejected.errors).toEqual([
@@ -118,6 +118,19 @@ describe('csv', () => {
     expect(created.doc.families.find((f) => f.name === 'ENGINE')!.values).toEqual(['V6', 'V8', 'EV', 'V12']);
     expect(created.doc.families.at(-1)).toEqual({ name: 'COLOR', values: ['RED', 'BLUE'] });
     expect(doc.families.map((f) => f.name)).toEqual(['ENGINE', 'MARKET', 'TRIM']);
+  });
+
+  it('sets units of new items, and lists missing ones and creates them when asked', () => {
+    const csv = ['Parent,ID,UoM', ',A-1,', 'A-1,X-1,kg', 'A-1,X-2,each', 'A-1,X-3,pallet', 'A-1,P-1,crate'].join('\n');
+    const doc = parseXml(sample);
+    const rejected = importCsv(doc, csv, 'X');
+    expect(rejected.missing.uoms).toEqual(['pallet']); // not crate for existing P-1
+    expect('errors' in rejected && rejected.errors).toEqual(["Row 5: unknown unit 'pallet' (known: each, kg, g, m, mm, m², l)"]);
+    const created = importCsv(doc, csv, 'X', true);
+    if ('errors' in created) throw new Error(created.errors.join('\n'));
+    expect(['X-1', 'X-2', 'X-3', 'P-1'].map((id) => created.doc.items.get(id)!.uom)).toEqual(['kg', undefined, 'pallet', undefined]);
+    expect(created.doc.uoms.at(-1)).toBe('pallet');
+    expect(doc.uoms).not.toContain('pallet');
   });
 
   it('gives a new type the ID start its items share, up to a digit or space', () => {

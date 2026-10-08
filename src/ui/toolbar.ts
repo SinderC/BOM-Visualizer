@@ -2,7 +2,7 @@ import { activeBom, openDoc, resetView, type App, type State } from '../app';
 import { createDocument, occurrencePath, type Bom } from '../model';
 import type { Occurrence } from '../resolve';
 import { parseXml, serializeXml } from '../xml';
-import { showImportCsvDialog, showItemTypesDialog, showStructureTypesDialog, showVariantFamiliesDialog, showUnsavedChangesDialog } from './dialogs';
+import { showImportCsvDialog, showItemTypesDialog, showUomsDialog, showStructureTypesDialog, showVariantFamiliesDialog, showUnsavedChangesDialog } from './dialogs';
 import { button, h, isMac } from './dom';
 import { setThemePref, themePref, type ThemePref } from './theme';
 import {
@@ -303,10 +303,11 @@ function editItems(app: App): HTMLElement[] {
   undo.disabled = !history.canUndo;
   redo.disabled = !history.canRedo;
   const types = button({ title: 'Add, rename and remove item types' }, () => showItemTypesDialog(app), 'Item types…');
+  const uoms = button({ title: 'Add, rename and remove units of measure' }, () => showUomsDialog(app), 'Units…');
   const families = button({ title: 'Add, rename and remove variant families and their values' }, () => showVariantFamiliesDialog(app), 'Variant families…');
   const structures = button({ title: 'Add, rename and remove BOMs' }, () => showStructureTypesDialog(app), 'Structure types…');
-  types.disabled = structures.disabled = families.disabled = !app.state.doc;
-  return [undo, redo, h('hr'), types, structures, families];
+  types.disabled = uoms.disabled = structures.disabled = families.disabled = !app.state.doc;
+  return [undo, redo, h('hr'), types, uoms, structures, families];
 }
 
 function viewItems(app: App): HTMLElement[] {

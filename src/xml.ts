@@ -1,4 +1,4 @@
-import { BOM_TYPES, DEFAULT_ITEM_TYPES, isUnit, validateDocument, type Bom, type BomType, type BomDocument, type Effectivity, type ItemType, type Relation } from './model';
+import { BOM_TYPES, DEFAULT_ITEM_TYPES, DEFAULT_UOMS, isUnit, normalizeUom, validateDocument, type Bom, type BomType, type BomDocument, type Effectivity, type ItemType, type Relation } from './model';
 
 const FORMAT_VERSION = 1;
 
@@ -15,7 +15,9 @@ export function parseXml(text: string): BomDocument {
 
   const typeList = kids(root, 'itemTypes')[0];
   const itemTypes = typeList ? kids(typeList, 'type').map(parseItemType) : DEFAULT_ITEM_TYPES.map((t) => ({ ...t }));
-  const doc: BomDocument = { itemTypes, items: new Map(), families: [], boms: [], alignments: [] };
+  const uomList = kids(root, 'uoms')[0];
+  const uoms = uomList ? [...new Set(kids(uomList, 'uom').flatMap((u) => normalizeUom(u.textContent ?? '') ?? []))] : [...DEFAULT_UOMS];
+  const doc: BomDocument = { itemTypes, uoms, items: new Map(), families: [], boms: [], alignments: [] };
 
   for (const f of path(root, 'optionFamilies', 'family')) {
     doc.families.push({ name: req(f, 'name'), values: kids(f, 'value').map((v) => v.textContent?.trim() ?? '') });
@@ -28,6 +30,7 @@ export function parseXml(text: string): BomDocument {
       name: i.getAttribute('name') ?? '',
       description: i.getAttribute('description') ?? '',
       type: i.getAttribute('type') || undefined,
+      uom: normalizeUom(i.getAttribute('uom') ?? undefined),
     });
   }
   for (const b of kids(root, 'bom')) {
@@ -108,9 +111,11 @@ export function serializeXml(doc: BomDocument): string {
   out.push('  </optionFamilies>', '  <itemTypes>');
   // prefix is always written, so that an empty one is not read back as missing from an older file
   for (const t of doc.itemTypes) out.push(`    <type prefix="${esc(t.prefix)}">${esc(t.name)}</type>`);
-  out.push('  </itemTypes>', '  <items>');
+  out.push('  </itemTypes>', '  <uoms>');
+  for (const u of doc.uoms) out.push(`    <uom>${esc(u)}</uom>`);
+  out.push('  </uoms>', '  <items>');
   for (const i of doc.items.values()) {
-    out.push(`    <item${attrs({ id: i.id, type: i.type, name: i.name, description: i.description })}/>`);
+    out.push(`    <item${attrs({ id: i.id, type: i.type, uom: i.uom, name: i.name, description: i.description })}/>`);
   }
   out.push('  </items>');
   for (const b of doc.boms) {
