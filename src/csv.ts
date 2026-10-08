@@ -4,7 +4,8 @@ import {
   addFamily,
   addItem,
   addItemType,
-  addRelation,
+  cycleError,
+  nextId,
   setFamilyValues,
   type ItemType,
   isIsoDate,
@@ -122,16 +123,26 @@ export function importCsv(doc: BomDocument, text: string, bomName: string, creat
 
   // Fields are checked on every row; relations, and so cycles, only once the rows above form a tree.
   const bom = problems.length ? undefined : addBom(draft, bomName, undefined, roots[0].get('ID'));
+  // Built here rather than with addRelation, whose scans of all relations per row take minutes for large files.
+  let relNo = Number(nextId('R', draft.boms.flatMap((b) => b.relations.map((r) => r.id))).slice(1));
+  const lastFindNo = new Map<string, number>(); // highest numeric find number under each parent, as nextFindNo
+  const children = new Map<string, string[]>();
   for (const l of lines) {
-    if (!l.get('Parent')) continue;
+    const parentId = l.get('Parent');
+    if (!parentId) continue;
     const before = problems.length;
     const patch = relationFields(l.get, draft, (message) => fail(l.row, message));
     if (!bom || problems.length > before) continue;
-    try {
-      Object.assign(addRelation(draft, bom, l.get('Parent'), l.get('ID')), patch);
-    } catch (e) {
-      fail(l.row, (e as Error).message);
+    const childId = l.get('ID');
+    if (reaches(children, childId, parentId)) {
+      fail(l.row, cycleError(parentId, childId).message);
+      continue;
     }
+    const findNo = patch.findNo ?? String((lastFindNo.get(parentId) ?? 0) + 10);
+    lastFindNo.set(parentId, Math.max(lastFindNo.get(parentId) ?? 0, Number(findNo) || 0));
+    if (!children.has(parentId)) children.set(parentId, []);
+    children.get(parentId)!.push(childId);
+    bom.relations.push({ id: `R${relNo++}`, parentId, childId, qty: 1, variantExpr: '', eff: {}, ...patch, findNo });
   }
   if (!bom || problems.length) {
     // Stable sort: a row's problems keep their order; the one without a row goes first.
@@ -165,6 +176,20 @@ function findMissing(doc: BomDocument, lines: Line[]): Missing {
   }
   const types = [...typeIds].map(([name, ids]) => ({ name, prefix: commonStart(ids).match(/^[^\d\s]*/)![0] }));
   return { types, values };
+}
+
+/** True if `to` is `from` or below it, following `children` (item id → child item ids). */
+function reaches(children: Map<string, string[]>, from: string, to: string): boolean {
+  const seen = new Set<string>();
+  const stack = [from];
+  while (stack.length) {
+    const id = stack.pop()!;
+    if (id === to) return true;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    stack.push(...(children.get(id) ?? []));
+  }
+  return false;
 }
 
 function commonStart(strings: string[]): string {

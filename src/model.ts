@@ -137,6 +137,20 @@ export function sortedChildren(bom: Bom, itemId: string): Relation[] {
   return childrenOf(bom, itemId).sort(byFindNo);
 }
 
+/**
+ * Every parent's children in display order, by parent item id. For walking a whole BOM: sortedChildren scans all
+ * relations per call, which takes seconds for tens of thousands of relations.
+ */
+export function childrenIndex(bom: Bom): Map<string, Relation[]> {
+  const index = new Map<string, Relation[]>();
+  for (const r of bom.relations) {
+    if (!index.has(r.parentId)) index.set(r.parentId, []);
+    index.get(r.parentId)!.push(r);
+  }
+  for (const children of index.values()) children.sort(byFindNo);
+  return index;
+}
+
 const newRelationId = (doc: BomDocument) => nextId('R', allRelations(doc).map((r) => r.id));
 
 /** Id prefix of items of the type; `I` for untyped items. */
@@ -365,8 +379,10 @@ function reaches(bom: Bom, itemId: string, ancestorId: string): boolean {
   return childrenOf(bom, itemId).some((r) => reaches(bom, r.childId, ancestorId));
 }
 
+export const cycleError = (parentId: string, childId: string) => new Error(`Adding ${childId} under ${parentId} would create a cycle`);
+
 function assertNoCycle(bom: Bom, parentId: string, childId: string): void {
-  if (reaches(bom, childId, parentId)) throw new Error(`Adding ${childId} under ${parentId} would create a cycle`);
+  if (reaches(bom, childId, parentId)) throw cycleError(parentId, childId);
 }
 
 /** Find number after the highest one under `parentId`, in steps of 10. */
@@ -557,13 +573,14 @@ export function validateDocument(doc: BomDocument): string[] {
 }
 
 function findCycle(bom: Bom): string | undefined {
+  const children = childrenIndex(bom);
   const done = new Set<string>();
   const onPath = new Set<string>();
   const visit = (itemId: string): string | undefined => {
     if (onPath.has(itemId)) return itemId;
     if (done.has(itemId)) return undefined;
     onPath.add(itemId);
-    for (const r of childrenOf(bom, itemId)) {
+    for (const r of children.get(itemId) ?? []) {
       const hit = visit(r.childId);
       if (hit) return hit;
     }

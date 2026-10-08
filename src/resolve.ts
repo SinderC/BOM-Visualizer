@@ -1,6 +1,6 @@
 import { isEffective, type EffectivityContext } from './effectivity';
 import { evaluate, parse, type OptionConfig } from './expr';
-import { occurrencePath, sortedChildren, type Bom, type BomDocument, type Item, type Relation } from './model';
+import { childrenIndex, occurrencePath, type Bom, type BomDocument, type Item, type Relation } from './model';
 
 export type Status = 'included' | 'excludedByVariant' | 'excludedByEff' | 'excludedByParent';
 
@@ -21,6 +21,7 @@ export interface Occurrence {
 
 /** Expands the BOM into its occurrence tree and marks what the configuration excludes. */
 export function resolve(doc: BomDocument, bom: Bom, ctx: ConfigContext): Occurrence {
+  const children = childrenIndex(bom);
   const build = (item: Item, relation: Relation | undefined, path: string[], parentIncluded: boolean): Occurrence => {
     const occ: Occurrence = {
       address: occurrencePath(bom.id, path),
@@ -32,7 +33,7 @@ export function resolve(doc: BomDocument, bom: Bom, ctx: ConfigContext): Occurre
     };
     if (relation && ctx.enabled) Object.assign(occ, judge(relation, ctx, parentIncluded));
     const included = occ.status === 'included';
-    occ.children = sortedChildren(bom, item.id).map((r) => build(doc.items.get(r.childId)!, r, [...path, r.id], included));
+    occ.children = (children.get(item.id) ?? []).map((r) => build(doc.items.get(r.childId)!, r, [...path, r.id], included));
     return occ;
   };
   return build(doc.items.get(bom.rootId)!, undefined, [], true);
