@@ -98,17 +98,19 @@ function resetDocument(): void {
 
 /**
  * Writes the document, its file name, its unsaved state and the configuration to localStorage when any changed;
- * reports a failure once.
+ * reports a failure once. The write is asynchronous (compression); a newer one supersedes it.
  */
 function autosave(): void {
   const { options, date, unit } = state.ctx;
   const current: Autosaved = { fileName: state.fileName, xml: history.snapshot, dirty: app.isDirty(), config: { options, date, unit } };
   const json = JSON.stringify(current);
   if (json === saved) return;
-  const error = writeAutosave(current);
-  if (error && !autosaveFailed) app.toast(`Autosave failed: ${error}`, true);
-  autosaveFailed = !!error;
-  if (!error) saved = json;
+  saved = json;
+  void writeAutosave(current).then((error) => {
+    if (error && !autosaveFailed) app.toast(`Autosave failed: ${error}\nSave to a file to keep your changes.`, true);
+    autosaveFailed = !!error;
+    if (error) saved = ''; // retry on the next change
+  });
 }
 
 const treeTable = createTreeTable($('tree'), app, editPane(app));
@@ -172,8 +174,9 @@ applyView();
 initResizers();
 render();
 
-const restored = loadAutosave();
-if (restored) {
+// The sample shows until the autosave, read right away, is decompressed.
+void loadAutosave().then((restored) => {
+  if (!restored) return;
   try {
     if (!restored.xml) app.closeDocument();
     else {
@@ -186,4 +189,4 @@ if (restored) {
   } catch (e) {
     app.toast(`Could not restore autosave: ${(e as Error).message}`, true);
   }
-}
+});
