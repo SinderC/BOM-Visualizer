@@ -18,6 +18,11 @@ export interface State {
 export interface App {
   state: State;
   commit(mutate?: () => void): void;
+  /**
+   * Like `commit` for changes to what is shown only (collapse, selection): no undo step or autosave, which serialize the
+   * whole document.
+   */
+  view(mutate?: () => void): void;
   /** Like `commit`, but an error from `mutate` is shown as a toast; the re-render restores the edited field. */
   tryCommit(mutate: () => void): void;
   loadDocument(doc: BomDocument, fileName: string): void;

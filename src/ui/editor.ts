@@ -222,12 +222,14 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
   const { collapsed } = app.state;
   const bom = activeBom(app.state);
 
-  const existing = h(
-    'select',
-    { name: 'add-existing' },
-    h('option', { value: '' }, '— new item —'),
-    ...[...doc.items.values()].map((i) => h('option', { value: i.id }, `${i.id} ${i.name}`)),
-  );
+  const existing = h('select', { name: 'add-existing' }, h('option', { value: '' }, '— new item —'));
+  // Filled when first used: an option per item on every render makes selecting rows slow in large documents.
+  const fillExisting = () => {
+    if (existing.options.length > 1) return;
+    existing.append(...[...doc.items.values()].map((i) => h('option', { value: i.id }, `${i.id} ${i.name}`)));
+  };
+  existing.addEventListener('pointerdown', fillExisting);
+  existing.addEventListener('focus', fillExisting);
   const name = h('input', { name: 'add-name', placeholder: 'New item name', value: addChildName });
   name.addEventListener('input', () => (addChildName = name.value));
   if (addChildType && !doc.itemTypes.some((t) => t.name === addChildType)) addChildType = undefined;

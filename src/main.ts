@@ -2,7 +2,7 @@ import './styles.css';
 import { activeBom, resetView, type App, type State } from './app';
 import { loadAutosave, writeAutosave, type Autosaved } from './autosave';
 import { createHistory } from './history';
-import { findBom } from './model';
+import { findBom, type BomDocument } from './model';
 import { flatten, resolve, type Occurrence } from './resolve';
 import sample from './samples/car.xml?raw';
 import { createAlignmentView, renderAlignPanel } from './ui/alignment';
@@ -27,6 +27,8 @@ const state: State = {
 };
 
 let index = new Map<string, Occurrence>();
+/** The last resolve of the shown BOMs, and what it depends on. */
+let resolved: { doc: BomDocument; snapshot: string; key: string; root: Occurrence; alignRoot?: Occurrence } | undefined;
 const history = createHistory(
   () => (state.doc ? serializeXml(state.doc) : ''),
   (snapshot) => (state.doc = parseXml(snapshot)),
@@ -44,6 +46,10 @@ const app: App = {
     mutate?.();
     history.record();
     autosave();
+    app.view();
+  },
+  view(mutate) {
+    mutate?.();
     // Deferred so that focus has moved (e.g. Tab after a change event) before panels are rebuilt.
     if (!renderQueued) {
       renderQueued = true;
@@ -131,10 +137,17 @@ function render(): void {
   // The aligned BOM can vanish on undo of its creation.
   const alignBom = state.align && state.align.bomId !== bom.id ? findBom(state.doc, state.align.bomId) : undefined;
   if (!alignBom) state.align = undefined;
-  const root = resolve(state.doc, bom, state.ctx);
-  const alignRoot = alignBom && resolve(state.doc, alignBom, state.ctx);
-  // Addresses start with the BOM id, so one index serves both panes.
-  index = new Map([root, alignRoot].flatMap((r) => (r ? flatten(r) : [])).map((o) => [o.address, o]));
+  // View-only changes (collapse, selection) reuse the last resolve: for large BOMs it is most of a render.
+  const key = JSON.stringify([bom.id, alignBom?.id, state.ctx]);
+  const { snapshot } = history; // compared as is: it changes whenever the document does
+  if (resolved?.doc !== state.doc || resolved.snapshot !== snapshot || resolved.key !== key) {
+    const root = resolve(state.doc, bom, state.ctx);
+    const alignRoot = alignBom && resolve(state.doc, alignBom, state.ctx);
+    // Addresses start with the BOM id, so one index serves both panes.
+    index = new Map([root, alignRoot].flatMap((r) => (r ? flatten(r) : [])).map((o) => [o.address, o]));
+    resolved = { doc: state.doc, snapshot, key, root, alignRoot };
+  }
+  const { root, alignRoot } = resolved;
   if (state.selected && !index.has(state.selected)) state.selected = undefined;
   state.extraSelected = state.selected ? state.extraSelected.filter((a) => index.has(a) && a !== state.selected) : [];
   if (state.align?.selected && !index.has(state.align.selected)) state.align.selected = undefined;

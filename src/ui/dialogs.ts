@@ -319,7 +319,7 @@ function importPreview(doc: BomDocument, bom: Bom, reused: Set<string>): HTMLEle
     rows.push(
       h(
         'tr',
-        { className: 'st-included' },
+        { className: `st-included${rows.length % 2 ? ' band' : ''}` },
         name,
         cell(item.id),
         cell(rel ? String(rel.qty) : '', 'num'),

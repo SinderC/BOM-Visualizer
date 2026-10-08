@@ -9,6 +9,12 @@ import { attachExprCompletion } from './expr-complete';
 import { COLUMNS, isColumnShown, isHideExcluded } from './view';
 
 const INDENT = 18;
+/** Name cell: left padding at depth 0 plus the twisty with its margin; see renderRow and the .twisty style. */
+const NAME_INDENT = 6 + 20;
+const CELL_PADDING = 20; // left + right, as in the .tree-table td style
+const VARIANT_COL = COLUMNS.findIndex((c) => c.key === 'variant');
+const VARIANT_MAX_CH = 48; // the .tree-table td.expr > span max-width
+const OVERSCAN = 20;
 
 /** What a tree-table shows and edits: its own selection, and whether in-place edit and drag and drop are on. */
 export interface Pane {
@@ -36,18 +42,25 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   let visible: Occurrence[] = []; // rows in display order, for keyboard navigation
   let all: Occurrence[] = []; // all rows in display order, shown or not
   const tbody = h('tbody');
-  const table = h(
-    'table',
-    { className: 'tree-table', tabIndex: 0 },
-    h('thead', {}, h('tr', {}, ...COLUMNS.map((c) => h('th', {}, c.label)), h('th', { className: 'filler' }))),
-    tbody,
-  );
+  const heads = COLUMNS.map((c) => h('th', {}, c.label));
+  const thead = h('thead', {}, h('tr', {}, ...heads, h('th', { className: 'filler' })));
+  const table = h('table', { className: 'tree-table', tabIndex: 0 }, thead, tbody);
   container.append(table);
 
-  const select = (address: string | undefined, extra?: string[]) => app.commit(() => pane.select(address, extra));
+  // Virtualized: only the rows in view, and OVERSCAN more on either side, are in the DOM; spacer rows stand in for the
+  // rest. Large BOMs have tens of thousands of rows, which take seconds to build on every change.
+  let depths: number[] = []; // indent level of each row of `visible`
+  let indexOf = new Map<string, number>(); // address → index in `visible`
+  let marks = { selected: new Set<string>(), unaligned: undefined as Set<string> | undefined };
+  let rowHeight = 25; // measured on paint
+  let painted = ''; // range of the rows in the DOM, so that a scroll within it repaints nothing
+  container.addEventListener('scroll', () => paint());
+  new ResizeObserver(() => paint()).observe(container);
+
+  const select = (address: string | undefined, extra?: string[]) => app.view(() => pane.select(address, extra));
   const selection = () => [pane.selected(), ...(pane.extra?.() ?? [])].filter((a) => a !== undefined);
   const setCollapsed = (address: string, collapse: boolean) =>
-    app.commit(() => (collapse ? app.state.collapsed.add(address) : app.state.collapsed.delete(address)));
+    app.view(() => (collapse ? app.state.collapsed.add(address) : app.state.collapsed.delete(address)));
 
   table.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
@@ -261,29 +274,103 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   /** Rows listed in `unaligned` are marked as such. */
   function render(root: Occurrence, unaligned?: Set<string>): void {
     const { collapsed } = app.state;
-    const selected = new Set(selection());
     all = flatten(root);
     visible = [];
-    const rows: HTMLTableRowElement[] = [];
+    depths = [];
     // Excluded rows only exist while the configuration is applied; their children are excluded too.
     const hideExcluded = isHideExcluded();
     const walk = (occ: Occurrence, depth: number) => {
       if (hideExcluded && occ.status !== 'included') return;
       visible.push(occ);
-      const isCollapsed = collapsed.has(occ.address);
-      const row = renderRow(occ, depth, isCollapsed, selected.has(occ.address));
-      row.classList.toggle('focused', occ.address === pane.selected());
-      row.draggable &&= pane.editable;
-      row.classList.toggle('unaligned', !!unaligned?.has(occ.address));
-      rows.push(row);
-      if (!isCollapsed) occ.children.forEach((c) => walk(c, depth + 1));
+      depths.push(depth);
+      if (!collapsed.has(occ.address)) occ.children.forEach((c) => walk(c, depth + 1));
     };
     walk(root, 0);
-    tbody.replaceChildren(...rows);
-    tbody.querySelector('tr.focused')?.scrollIntoView({ block: 'nearest' });
+    indexOf = new Map(visible.map((o, i) => [o.address, i]));
+    marks = { selected: new Set(selection()), unaligned };
+    fitColumns();
+    painted = '';
+    paint(); // first, so the spacers give the table its full height to scroll in
+    scrollToFocused();
+    paint();
   }
 
-  return { table, render };
+  /** Fixes each column at the width of its widest shown cell, so that columns do not change width while scrolling. */
+  function fitColumns(): void {
+    const probe = h('span', { className: 'mono' }, '0'.repeat(100));
+    probe.style.cssText = 'position: absolute; visibility: hidden';
+    container.append(probe);
+    const ch = probe.getBoundingClientRect().width / 100; // cells use a monospace font
+    probe.remove();
+    const widest = heads.map(() => 0);
+    visible.forEach((occ, i) => {
+      cellTexts(occ).forEach((text, col) => {
+        const indent = col ? 0 : NAME_INDENT + depths[i] * INDENT;
+        widest[col] = Math.max(widest[col], indent + Math.min(text.length, col === VARIANT_COL ? VARIANT_MAX_CH : Infinity) * ch);
+      });
+    });
+    // + cell padding, and a pixel for rounding
+    heads.forEach((th, col) => (th.style.width = `${Math.ceil(widest[col] + CELL_PADDING + 1)}px`));
+  }
+
+  /** Viewport top of the first row. */
+  const rowsTop = () => table.getBoundingClientRect().top + thead.offsetHeight;
+
+  /** Puts the rows in view (and OVERSCAN more on either side) in the DOM, unless they already are. */
+  function paint(): void {
+    const above = container.getBoundingClientRect().top - rowsTop(); // scrolled past, in px
+    const first = Math.max(0, Math.floor(above / rowHeight) - OVERSCAN);
+    const last = Math.min(visible.length, Math.ceil((above + container.clientHeight) / rowHeight) + OVERSCAN);
+    if (`${first}:${last}` === painted) return;
+    painted = `${first}:${last}`;
+    const rows: HTMLTableRowElement[] = [];
+    for (let i = first; i < last; i++) rows.push(paintRow(i));
+    tbody.replaceChildren(spacer(first * rowHeight), ...rows, spacer((visible.length - last) * rowHeight));
+    // Measured rather than set in CSS, so that it follows the font; 0 while hidden.
+    const measured = rows[0]?.getBoundingClientRect().height;
+    if (measured && Math.abs(measured - rowHeight) > 0.01) {
+      rowHeight = measured;
+      painted = '';
+      paint();
+    }
+  }
+
+  function paintRow(i: number): HTMLTableRowElement {
+    const occ = visible[i];
+    const row = renderRow(occ, depths[i], app.state.collapsed.has(occ.address), marks.selected.has(occ.address));
+    row.classList.toggle('focused', occ.address === pane.selected());
+    row.classList.toggle('band', i % 2 === 1);
+    row.draggable &&= pane.editable;
+    row.classList.toggle('unaligned', !!marks.unaligned?.has(occ.address));
+    return row;
+  }
+
+  const spacer = (height: number) => {
+    const td = h('td', { colSpan: heads.length + 1 });
+    td.style.height = `${height}px`;
+    return h('tr', { className: 'spacer' }, td);
+  };
+
+  /** Scrolls the focused row into view, below the sticky header, if it is not. */
+  function scrollToFocused(): void {
+    const i = indexOf.get(pane.selected() ?? '');
+    if (i === undefined) return;
+    const top = rowsTop() + i * rowHeight - container.getBoundingClientRect().top; // relative to the view
+    const head = thead.offsetHeight;
+    if (top < head) container.scrollTop += top - head;
+    else if (top + rowHeight > container.clientHeight) container.scrollTop += top + rowHeight - container.clientHeight;
+  }
+
+  /** Viewport y of the centre of the address's row; a collapsed or hidden row gives its nearest shown ancestor's. */
+  function rowY(address: string): { y: number; ancestor: boolean } | undefined {
+    for (let a = address; ; a = parentAddress(a)) {
+      const i = indexOf.get(a);
+      if (i !== undefined) return { y: rowsTop() + (i + 0.5) * rowHeight, ancestor: a !== address };
+      if (a === parentAddress(a)) return undefined;
+    }
+  }
+
+  return { table, render, rowY };
 }
 
 function edit(host: HTMLElement, control: HTMLInputElement | HTMLSelectElement, width: string): void {
@@ -334,12 +421,28 @@ function cellSaver(app: App, occ: Occurrence, col: string): ((v: string) => void
   }
 }
 
+/** The text of each column's cell, in COLUMNS order. */
+function cellTexts(occ: Occurrence): string[] {
+  const rel = occ.relation;
+  return [
+    occ.item.name,
+    occ.item.id,
+    occ.item.type ?? '',
+    rel ? String(rel.qty) : '',
+    rel?.findNo ?? '',
+    rel?.variantExpr ?? '',
+    rel ? formatEffEnd(rel.eff, 'from') : '',
+    rel ? formatEffEnd(rel.eff, 'to') : '',
+  ];
+}
+
 function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelected: boolean): HTMLTableRowElement {
   const rel = occ.relation;
+  const [label, id, type, qty, findNo, variant, effFrom, effTo] = cellTexts(occ);
   const twisty = occ.children.length
     ? h('span', { className: 'twisty', title: isCollapsed ? `Expand (${occ.children.length})` : 'Collapse' }, isCollapsed ? '▸' : '▾')
     : h('span', { className: 'twisty leaf' });
-  const name = h('td', { className: 'name', dataset: { col: 'name' } }, twisty, h('span', {}, occ.item.name));
+  const name = h('td', { className: 'name', dataset: { col: 'name' } }, twisty, h('span', {}, label));
   name.style.paddingLeft = `${6 + depth * INDENT}px`;
   return h(
     'tr',
@@ -350,13 +453,13 @@ function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelec
       dataset: { address: occ.address },
     },
     name,
-    h('td', { className: 'id', dataset: { col: 'id' } }, occ.item.id),
-    h('td', { className: 'type', dataset: { col: 'type' } }, occ.item.type ?? ''),
-    h('td', { className: 'num', dataset: { col: 'qty' } }, rel ? String(rel.qty) : ''),
-    h('td', { className: 'num', dataset: { col: 'findNo' } }, rel?.findNo ?? ''),
-    h('td', { className: 'expr', title: rel?.variantExpr ?? '', dataset: { col: 'variant' } }, h('span', {}, rel?.variantExpr ?? '')),
-    h('td', { className: 'eff' }, rel ? formatEffEnd(rel.eff, 'from') : ''),
-    h('td', { className: 'eff' }, rel ? formatEffEnd(rel.eff, 'to') : ''),
+    h('td', { className: 'id', dataset: { col: 'id' } }, id),
+    h('td', { className: 'type', dataset: { col: 'type' } }, type),
+    h('td', { className: 'num', dataset: { col: 'qty' } }, qty),
+    h('td', { className: 'num', dataset: { col: 'findNo' } }, findNo),
+    h('td', { className: 'expr', title: variant, dataset: { col: 'variant' } }, h('span', {}, variant)),
+    h('td', { className: 'eff' }, effFrom),
+    h('td', { className: 'eff' }, effTo),
     h('td', { className: 'filler' }),
   );
 }

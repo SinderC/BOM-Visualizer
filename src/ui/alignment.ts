@@ -1,5 +1,5 @@
 import { activeBom, openDoc, type App } from '../app';
-import { addAlignment, findBom, parentAddress, removeAlignment, type Alignment, type Bom } from '../model';
+import { addAlignment, findBom, removeAlignment, type Alignment, type Bom } from '../model';
 import { flatten, type Occurrence } from '../resolve';
 import { button, h } from './dom';
 import { createTreeTable, editPane } from './tree-table';
@@ -48,24 +48,15 @@ export function createAlignmentView(container: HTMLElement, app: App) {
   });
   let shown: Link[] = [];
 
-  /** Vertical centre of the address's row relative to the gutter; a collapsed or hidden row is drawn at its nearest shown ancestor. */
-  const rowY = (paneEl: HTMLElement, address: string, top: number) => {
-    for (let a = address; ; a = parentAddress(a)) {
-      const row = paneEl.querySelector(`tr[data-address="${CSS.escape(a)}"]`);
-      if (row) {
-        const r = row.getBoundingClientRect();
-        return { y: r.top + r.height / 2 - top, ancestor: a !== address };
-      }
-      if (a === parentAddress(a)) return undefined;
-    }
-  };
-
   function drawLinks(): void {
     const { top, width } = svg.getBoundingClientRect();
     const paths = shown.flatMap(({ left: l, right: r }) => {
-      const a = rowY(leftPane, l, top);
-      const b = rowY(rightPane, r, top);
+      // Relative to the gutter; a collapsed or hidden row is drawn at its nearest shown ancestor.
+      const a = left.rowY(l);
+      const b = right.rowY(r);
       if (!a || !b) return [];
+      a.y -= top;
+      b.y -= top;
       const path = document.createElementNS(SVG, 'path');
       path.setAttribute('d', `M0 ${a.y} C${width / 2} ${a.y} ${width / 2} ${b.y} ${width} ${b.y}`);
       path.classList.toggle('active', l === app.state.selected || r === app.state.align?.selected);

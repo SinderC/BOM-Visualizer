@@ -22,6 +22,9 @@ export interface Occurrence {
 /** Expands the BOM into its occurrence tree and marks what the configuration excludes. */
 export function resolve(doc: BomDocument, bom: Bom, ctx: ConfigContext): Occurrence {
   const children = childrenIndex(bom);
+  // Parsed once per distinct expression: large BOMs repeat a few expressions on thousands of relations.
+  const parsed = new Map<string, ReturnType<typeof parse>>();
+  const parseOnce = (expr: string) => parsed.get(expr) ?? parsed.set(expr, parse(expr)).get(expr)!;
   const build = (item: Item, relation: Relation | undefined, path: string[], parentIncluded: boolean): Occurrence => {
     const occ: Occurrence = {
       address: occurrencePath(bom.id, path),
@@ -31,7 +34,7 @@ export function resolve(doc: BomDocument, bom: Bom, ctx: ConfigContext): Occurre
       status: 'included',
       children: [],
     };
-    if (relation && ctx.enabled) Object.assign(occ, judge(relation, ctx, parentIncluded));
+    if (relation && ctx.enabled) Object.assign(occ, judge(relation, ctx, parentIncluded, parseOnce));
     const included = occ.status === 'included';
     occ.children = (children.get(item.id) ?? []).map((r) => build(doc.items.get(r.childId)!, r, [...path, r.id], included));
     return occ;
@@ -44,9 +47,14 @@ export function flatten(occ: Occurrence): Occurrence[] {
   return [occ, ...occ.children.flatMap(flatten)];
 }
 
-function judge(rel: Relation, ctx: ConfigContext, parentIncluded: boolean): Pick<Occurrence, 'status' | 'reason'> {
+function judge(
+  rel: Relation,
+  ctx: ConfigContext,
+  parentIncluded: boolean,
+  parseExpr: typeof parse,
+): Pick<Occurrence, 'status' | 'reason'> {
   if (!parentIncluded) return { status: 'excludedByParent', reason: 'Parent is excluded' };
-  const { ast, errors } = parse(rel.variantExpr);
+  const { ast, errors } = parseExpr(rel.variantExpr);
   if (errors.length) return { status: 'excludedByVariant', reason: `Invalid variant expression: ${errors[0].message}` };
   if (!evaluate(ast, ctx.options)) return { status: 'excludedByVariant', reason: `Variant false: ${rel.variantExpr}` };
   if (!isEffective(rel.eff, ctx)) return { status: 'excludedByEff', reason: 'Not effective for date/unit' };

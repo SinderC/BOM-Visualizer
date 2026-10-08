@@ -10,9 +10,6 @@ Deliberately left out of the first version. Each entry notes what is already in 
 ## 3. Revisions and revision rules
 **What:** Item revisions, with a rule such as "latest released" or "as of date" selecting which revision each occurrence resolves to.
 
-## 7. Large-BOM rendering
-**What:** Virtualized rows (render only what is scrolled into view) once trees exceed ~5k visible rows; a full DOM table slows down beyond that.
-
 ## 7b. Graphical node-link view
 **What:** Optional diagram view (the first version had one, replaced by the tree-table). Could return as a toggle for presentations.
 
