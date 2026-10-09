@@ -6,6 +6,7 @@ import {
   addItemType,
   addUom,
   cycleError,
+  reaches,
   nextId,
   setFamilyValues,
   type ItemType,
@@ -146,7 +147,7 @@ export function importCsv(doc: BomDocument, text: string, bomName: string, creat
     const patch = relationFields(l.get, draft, (message) => fail(l.row, message));
     if (!bom || problems.length > before) continue;
     const childId = l.get('ID');
-    if (reaches(children, childId, parentId)) {
+    if (reaches((id) => children.get(id) ?? [], childId, parentId)) {
       fail(l.row, cycleError(parentId, childId).message);
       continue;
     }
@@ -194,19 +195,6 @@ function findMissing(doc: BomDocument, lines: Line[]): Missing {
 }
 
 /** True if `to` is `from` or below it, following `children` (item id → child item ids). */
-function reaches(children: Map<string, string[]>, from: string, to: string): boolean {
-  const seen = new Set<string>();
-  const stack = [from];
-  while (stack.length) {
-    const id = stack.pop()!;
-    if (id === to) return true;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    stack.push(...(children.get(id) ?? []));
-  }
-  return false;
-}
-
 function commonStart(strings: string[]): string {
   return strings.reduce((a, b) => {
     let i = 0;

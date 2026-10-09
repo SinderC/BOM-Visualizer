@@ -240,11 +240,15 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
 
   /** The rows that move with a drag of these selected rows: those with a relation and no selected ancestor, one per relation. */
   function movable(addresses: string[]): Occurrence[] {
+    const selected = new Set(addresses);
     const ids = new Set<string>();
+    const hasSelectedAncestor = (address: string) => {
+      for (let a = parentAddress(address); a !== address; address = a, a = parentAddress(a)) if (selected.has(a)) return true;
+      return false;
+    };
     return all.filter((o) => {
       const rel = o.relation;
-      if (!rel || ids.has(rel.id) || !addresses.includes(o.address)) return false;
-      if (addresses.some((a) => o.address.startsWith(`${a}/`))) return false;
+      if (!rel || ids.has(rel.id) || !selected.has(o.address) || hasSelectedAncestor(o.address)) return false;
       ids.add(rel.id);
       return true;
     });

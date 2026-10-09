@@ -13,7 +13,7 @@ import {
   parentAddress,
   parseQty,
   parseUnit,
-  removeRelation,
+  removeRelations,
   renameItem,
   setItemType,
   setItemUom,
@@ -240,7 +240,7 @@ function multiSection(app: App, focused: Occurrence): HTMLElement[] {
     const remove = () =>
       app.commit(() => {
         const bom = activeBom(app.state);
-        relIds.forEach((id) => removeRelation(doc, bom, id));
+        removeRelations(doc, bom, relIds);
         app.state.selected = focused.relation ? parentAddress(focused.address) : focused.address;
         app.state.extraSelected = [];
       });
@@ -312,7 +312,7 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
     const relId = occ.relation.id;
     const remove = () =>
       app.commit(() => {
-        removeRelation(doc, bom, relId);
+        removeRelations(doc, bom, [relId]);
         app.state.selected = parentAddress(occ.address);
       });
     const parent = app.occurrence(parentAddress(occ.address))!.item.name;

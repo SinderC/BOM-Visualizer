@@ -144,16 +144,12 @@ export function findBom(doc: BomDocument, bomId: string): Bom | undefined {
   return doc.boms.find((b) => b.id === bomId);
 }
 
-function childrenOf(bom: Bom, itemId: string): Relation[] {
-  return bom.relations.filter((r) => r.parentId === itemId);
-}
-
 /** Natural order, so `9` < `10` < `10A`; ties keep file order. */
 const byFindNo = (a: Relation, b: Relation) => a.findNo.localeCompare(b.findNo, undefined, { numeric: true });
 
 /** Children in display order (by find number). */
 export function sortedChildren(bom: Bom, itemId: string): Relation[] {
-  return childrenOf(bom, itemId).sort(byFindNo);
+  return bom.relations.filter((r) => r.parentId === itemId).sort(byFindNo);
 }
 
 /**
@@ -161,12 +157,18 @@ export function sortedChildren(bom: Bom, itemId: string): Relation[] {
  * relations per call, which takes seconds for tens of thousands of relations.
  */
 export function childrenIndex(bom: Bom): Map<string, Relation[]> {
+  const index = unsortedChildrenIndex(bom);
+  for (const children of index.values()) children.sort(byFindNo);
+  return index;
+}
+
+/** Like childrenIndex, in file order: sorting all of a large BOM takes longer than what most edits do with it. */
+function unsortedChildrenIndex(bom: Bom): Map<string, Relation[]> {
   const index = new Map<string, Relation[]>();
   for (const r of bom.relations) {
     if (!index.has(r.parentId)) index.set(r.parentId, []);
     index.get(r.parentId)!.push(r);
   }
-  for (const children of index.values()) children.sort(byFindNo);
   return index;
 }
 
@@ -436,30 +438,43 @@ export function removeFamily(doc: BomDocument, name: string): void {
   doc.families = doc.families.filter((f) => f.name !== name);
 }
 
-/** True if `ancestorId` is reachable from `itemId` going downwards in the BOM. */
-function reaches(bom: Bom, itemId: string, ancestorId: string): boolean {
-  if (itemId === ancestorId) return true;
-  return childrenOf(bom, itemId).some((r) => reaches(bom, r.childId, ancestorId));
+/**
+ * True if `to` is `from` or below it, given each item's child item ids. Visits each item once: shared subassemblies
+ * would otherwise be walked once per use.
+ */
+export function reaches(childIds: (itemId: string) => string[], from: string, to: string): boolean {
+  const seen = new Set<string>();
+  const stack = [from];
+  while (stack.length) {
+    const id = stack.pop()!;
+    if (id === to) return true;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    stack.push(...childIds(id));
+  }
+  return false;
 }
 
 export const cycleError = (parentId: string, childId: string) => new Error(`Adding ${childId} under ${parentId} would create a cycle`);
 
-function assertNoCycle(bom: Bom, parentId: string, childId: string): void {
-  if (reaches(bom, childId, parentId)) throw cycleError(parentId, childId);
+/** `index` as from unsortedChildrenIndex. */
+function assertNoCycle(index: Map<string, Relation[]>, parentId: string, childId: string): void {
+  if (reaches((id) => (index.get(id) ?? []).map((r) => r.childId), childId, parentId)) throw cycleError(parentId, childId);
 }
 
-/** Find number after the highest one under `parentId`, in steps of 10. */
-function nextFindNo(bom: Bom, parentId: string): string {
-  return String(Math.max(0, ...childrenOf(bom, parentId).map((r) => Number(r.findNo) || 0)) + 10);
+/** Find number after the highest one of `siblings`, in steps of 10. */
+function nextFindNo(siblings: Relation[]): string {
+  return String(Math.max(0, ...siblings.map((r) => Number(r.findNo) || 0)) + 10);
 }
 
 /**
- * Find number that puts `rel` right before sibling `beforeId` under `parentId`, or last when `beforeId` is undefined.
- * Uses the midpoint of the neighbours' numbers; renumbers all siblings in steps of 10 when there is no whole-number gap.
+ * Find number that puts `rel` right before sibling `beforeId` among `siblings` (the children of `parentId` in display
+ * order), or last when `beforeId` is undefined. Uses the midpoint of the neighbours' numbers; renumbers all siblings in
+ * steps of 10 when there is no whole-number gap.
  */
-function placeFindNo(bom: Bom, rel: Relation, parentId: string, beforeId?: string): string {
-  if (beforeId === undefined) return nextFindNo(bom, parentId);
-  const siblings = sortedChildren(bom, parentId).filter((r) => r !== rel);
+function placeFindNo(siblings: Relation[], rel: Relation, parentId: string, beforeId?: string): string {
+  if (beforeId === undefined) return nextFindNo(siblings);
+  siblings = siblings.filter((r) => r !== rel);
   const i = siblings.findIndex((r) => r.id === beforeId);
   if (i < 0) throw new Error(`Relation ${beforeId} is not under ${parentId}`);
   const prev = i ? Number(siblings[i - 1].findNo) : 0;
@@ -472,13 +487,14 @@ function placeFindNo(bom: Bom, rel: Relation, parentId: string, beforeId?: strin
 
 export function addRelation(doc: BomDocument, bom: Bom, parentId: string, childId: string): Relation {
   if (!doc.items.has(parentId) || !doc.items.has(childId)) throw new Error('Unknown item');
-  assertNoCycle(bom, parentId, childId);
+  const index = unsortedChildrenIndex(bom);
+  assertNoCycle(index, parentId, childId);
   const rel: Relation = {
     id: newRelationId(doc),
     parentId,
     childId,
     qty: 1,
-    findNo: nextFindNo(bom, parentId),
+    findNo: nextFindNo(index.get(parentId) ?? []),
     variantExpr: '',
     eff: {},
   };
@@ -511,64 +527,61 @@ export function updateRelation(bom: Bom, id: string, patch: Partial<Omit<Relatio
   if (rel) Object.assign(rel, patch);
 }
 
-function getRelation(bom: Bom, id: string): Relation {
-  const rel = bom.relations.find((r) => r.id === id);
-  if (!rel) throw new Error(`Unknown relation ${id}`);
-  return rel;
-}
-
 /**
- * Moves a relation under `parentId`, before sibling `beforeId` (or last). Keeps its id, qty, variant and effectivity;
- * only the find number changes (see placeFindNo). Alignments of the moved subtree are removed, as its addresses change.
- */
-export function moveRelation(doc: BomDocument, bom: Bom, id: string, parentId: string, beforeId?: string): Relation {
-  const rel = getRelation(bom, id);
-  if (beforeId === id) return rel;
-  assertNoCycle(bom, parentId, rel.childId);
-  rel.findNo = placeFindNo(bom, rel, parentId, beforeId);
-  rel.parentId = parentId;
-  pruneAlignments(doc);
-  return rel;
-}
-
-/** Adds a copy of a relation (same child, qty, variant, effectivity) under `parentId`, before sibling `beforeId` (or last). */
-export function copyRelation(doc: BomDocument, bom: Bom, id: string, parentId: string, beforeId?: string): Relation {
-  const src = getRelation(bom, id);
-  assertNoCycle(bom, parentId, src.childId);
-  const rel: Relation = { ...src, eff: { ...src.eff }, id: newRelationId(doc), parentId };
-  rel.findNo = placeFindNo(bom, rel, parentId, beforeId);
-  bom.relations.push(rel);
-  return rel;
-}
-
-/**
- * Moves (or copies) relations under `parentId`, before sibling `beforeId` (or last), keeping their given order.
- * When moving, a `beforeId` that is itself moved is replaced by the next sibling that stays.
+ * Moves relations, or adds copies of them (same child, qty, variant, effectivity), under `parentId`, before sibling
+ * `beforeId` (or last), keeping their given order. A move keeps the relation's id; only the find number changes (see
+ * placeFindNo). When moving, a `beforeId` that is itself moved is replaced by the next sibling that stays. Alignments
+ * of moved subtrees are removed, as their addresses change.
  */
 export function moveRelations(doc: BomDocument, bom: Bom, ids: string[], parentId: string, beforeId: string | undefined, copy: boolean): Relation[] {
-  if (copy) return ids.map((id) => copyRelation(doc, bom, id, parentId, beforeId));
-  if (beforeId !== undefined && ids.includes(beforeId)) {
-    const siblings = sortedChildren(bom, parentId);
-    beforeId = siblings.slice(siblings.findIndex((r) => r.id === beforeId)).find((r) => !ids.includes(r.id))?.id;
+  // Indexed once: scanning all relations per moved relation takes seconds for large selections and BOMs.
+  const byId = new Map(bom.relations.map((r) => [r.id, r]));
+  const index = unsortedChildrenIndex(bom); // kept up to date below, for the cycle checks of the next relations
+  const siblings = (index.get(parentId) ?? []).sort(byFindNo); // and these in display order
+  index.set(parentId, siblings);
+  if (!copy && beforeId !== undefined && ids.includes(beforeId)) {
+    const moved = new Set(ids);
+    beforeId = siblings.slice(siblings.findIndex((r) => r.id === beforeId)).find((r) => !moved.has(r.id))?.id;
   }
-  return ids.map((id) => moveRelation(doc, bom, id, parentId, beforeId));
+  let relNo = Number(newRelationId(doc).slice(1));
+  const placed = ids.map((id) => {
+    const src = byId.get(id);
+    if (!src) throw new Error(`Unknown relation ${id}`);
+    assertNoCycle(index, parentId, src.childId);
+    const rel = copy ? { ...src, eff: { ...src.eff }, id: `R${relNo++}`, parentId } : src;
+    rel.findNo = placeFindNo(siblings, rel, parentId, beforeId);
+    if (copy) bom.relations.push(rel);
+    else {
+      const from = index.get(rel.parentId)!;
+      from.splice(from.indexOf(rel), 1);
+      rel.parentId = parentId;
+    }
+    siblings.splice(beforeId === undefined ? siblings.length : siblings.findIndex((r) => r.id === beforeId), 0, rel);
+    return rel;
+  });
+  if (!copy) pruneAlignments(doc);
+  return placed;
 }
 
 /**
- * Removes the relation, and the child's own relations if the child is no longer used in this BOM. Alignments of the
+ * Removes the relations, and a child's own relations once the child is no longer used in this BOM. Alignments of the
  * removed occurrences are removed too.
  */
-export function removeRelation(doc: BomDocument, bom: Bom, id: string): void {
-  const remove = (id: string) => {
-    const rel = bom.relations.find((r) => r.id === id);
-    if (!rel) return;
-    bom.relations = bom.relations.filter((r) => r !== rel);
-    const stillUsed = rel.childId === bom.rootId || bom.relations.some((r) => r.childId === rel.childId);
-    if (!stillUsed) {
-      for (const child of childrenOf(bom, rel.childId)) remove(child.id);
-    }
+export function removeRelations(doc: BomDocument, bom: Bom, ids: string[]): void {
+  const byId = new Map(bom.relations.map((r) => [r.id, r]));
+  const index = unsortedChildrenIndex(bom);
+  const uses = new Map<string, number>(); // relations per child item
+  for (const r of bom.relations) uses.set(r.childId, (uses.get(r.childId) ?? 0) + 1);
+  const removed = new Set<Relation>();
+  const remove = (rel: Relation | undefined) => {
+    if (!rel || removed.has(rel)) return;
+    removed.add(rel);
+    const left = uses.get(rel.childId)! - 1;
+    uses.set(rel.childId, left);
+    if (!left && rel.childId !== bom.rootId) for (const child of index.get(rel.childId) ?? []) remove(child);
   };
-  remove(id);
+  for (const id of ids) remove(byId.get(id));
+  bom.relations = bom.relations.filter((r) => !removed.has(r));
   pruneAlignments(doc);
 }
 

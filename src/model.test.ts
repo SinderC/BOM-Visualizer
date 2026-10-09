@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addUom, DEFAULT_UOMS, removeUom, renameUom, setItemUom, uomUsage, addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, removeBom, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelation, createDocument, moveRelation, moveRelations, sortedChildren, nextId, parseQty, parseUnit, moveFamily, removeFamily, removeRelation, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
+import { addUom, DEFAULT_UOMS, removeUom, renameUom, setItemUom, uomUsage, addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, removeBom, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, createDocument, moveRelations, sortedChildren, nextId, parseQty, parseUnit, moveFamily, removeFamily, removeRelations, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -97,9 +97,9 @@ describe('model', () => {
     addRelation(doc, bom, root, a.id);
     const rel = addRelation(doc, bom, root, b.id);
     Object.assign(rel, { qty: 3, variantExpr: 'ENGINE=V8' });
-    moveRelation(doc, bom, rel.id, a.id);
+    moveRelations(doc, bom, [rel.id], a.id, undefined, false);
     expect(rel).toMatchObject({ parentId: a.id, qty: 3, variantExpr: 'ENGINE=V8', findNo: '10' });
-    expect(() => moveRelation(doc, bom, rel.id, b.id)).toThrow(/cycle/);
+    expect(() => moveRelations(doc, bom, [rel.id], b.id, undefined, false)).toThrow(/cycle/);
     expect(rel.parentId).toBe(a.id);
   });
 
@@ -107,10 +107,10 @@ describe('model', () => {
     const { doc, bom, a, b, root } = setup();
     const c = addItem(doc, 'C');
     const [ra, rb, rc] = [a, b, c].map((i) => addRelation(doc, bom, root, i.id)); // 10, 20, 30
-    moveRelation(doc, bom, rc.id, root, rb.id);
+    moveRelations(doc, bom, [rc.id], root, rb.id, false);
     expect(rc.findNo).toBe('15');
     rb.findNo = '16';
-    moveRelation(doc, bom, ra.id, root, rb.id); // no gap between 15 and 16: renumber
+    moveRelations(doc, bom, [ra.id], root, rb.id, false); // no gap between 15 and 16: renumber
     expect(sortedChildren(bom, root).map((r) => [r.id, r.findNo])).toEqual([
       [rc.id, '10'],
       [ra.id, '20'],
@@ -145,12 +145,12 @@ describe('model', () => {
     addRelation(doc, bom, root, a.id);
     const rb = addRelation(doc, bom, root, b.id);
     Object.assign(rb, { qty: 2, eff: { unitFrom: 5 } });
-    const copy = copyRelation(doc, bom, rb.id, a.id);
+    const copy = moveRelations(doc, bom, [rb.id], a.id, undefined, true)[0];
     expect(copy).toMatchObject({ parentId: a.id, childId: b.id, qty: 2, eff: { unitFrom: 5 }, findNo: '10' });
     expect(copy.id).not.toBe(rb.id);
     expect(copy.eff).not.toBe(rb.eff);
     expect(rb.parentId).toBe(root);
-    expect(() => copyRelation(doc, bom, copy.id, b.id)).toThrow(/cycle/);
+    expect(() => moveRelations(doc, bom, [copy.id], b.id, undefined, true)[0]).toThrow(/cycle/);
   });
 
   it('rejects cycles', () => {
@@ -167,10 +167,30 @@ describe('model', () => {
     const r1 = addRelation(doc, bom, root, a.id);
     const r2 = addRelation(doc, bom, root, a.id);
     addRelation(doc, bom, a.id, b.id);
-    removeRelation(doc, bom, r1.id);
+    removeRelations(doc, bom, [r1.id]);
     expect(bom.relations).toHaveLength(2);
-    removeRelation(doc, bom, r2.id);
+    removeRelations(doc, bom, [r2.id]);
     expect(bom.relations).toHaveLength(0);
+  });
+
+  it('removes several relations, including ones already removed with their parent', () => {
+    const { doc, bom, a, b, root } = setup();
+    const r1 = addRelation(doc, bom, root, a.id);
+    const r2 = addRelation(doc, bom, a.id, b.id);
+    const r3 = addRelation(doc, bom, root, b.id);
+    removeRelations(doc, bom, [r1.id, r2.id]);
+    expect(bom.relations).toEqual([r3]);
+  });
+
+  it('rejects a cycle through a subassembly used in several places', () => {
+    const { doc, bom, a, b, root } = setup();
+    const c = addItem(doc, 'C');
+    addRelation(doc, bom, root, a.id);
+    addRelation(doc, bom, root, b.id);
+    addRelation(doc, bom, a.id, c.id);
+    addRelation(doc, bom, b.id, c.id);
+    expect(() => addRelation(doc, bom, c.id, a.id)).toThrow(/cycle/);
+    expect(addRelation(doc, bom, a.id, b.id).parentId).toBe(a.id);
   });
 
   it('flags duplicate relation ids, dangling refs and cycles', () => {
@@ -380,16 +400,16 @@ describe('alignments', () => {
     const { doc, bom, mbom, a, root, r1, r3 } = alignedSetup();
     const ra = addRelation(doc, mbom, root, a.id);
     addAlignment(doc, `${bom.id}:${r1.id}`, `${mbom.id}:${ra.id}`);
-    removeRelation(doc, mbom, r3.id);
+    removeRelations(doc, mbom, [r3.id]);
     expect(doc.alignments.map((x) => x.id)).toEqual(['A2']);
     // Removing R1 orphans A, so its own relation R2 goes too; A2 ends at R1.
-    removeRelation(doc, bom, r1.id);
+    removeRelations(doc, bom, [r1.id]);
     expect(doc.alignments).toEqual([]);
   });
 
   it('moving a relation removes the alignments of its subtree', () => {
     const { doc, bom, root, r2 } = alignedSetup();
-    moveRelation(doc, bom, r2.id, root);
+    moveRelations(doc, bom, [r2.id], root, undefined, false);
     expect(doc.alignments).toEqual([]);
   });
 
