@@ -448,7 +448,7 @@ function renderRow(occ: Occurrence, depth: number, isCollapsed: boolean, isSelec
   const rel = occ.relation;
   const [label, id, type, qty, uom, findNo, variant, effFrom, effTo] = cellTexts(occ);
   const twisty = occ.children.length
-    ? h('span', { className: 'twisty', title: isCollapsed ? `Expand (${occ.children.length})` : 'Collapse' }, isCollapsed ? '▸' : '▾')
+    ? h('span', { className: 'twisty', title: isCollapsed ? `Expand (${occ.children.length})` : 'Collapse' }, h('span', { className: isCollapsed ? 'caret right' : 'caret' }))
     : h('span', { className: 'twisty leaf' });
   const name = h('td', { className: 'name', dataset: { col: 'name' } }, twisty, h('span', {}, label));
   name.style.paddingLeft = `${6 + depth * INDENT}px`;

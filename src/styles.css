@@ -25,19 +25,25 @@
 }
 
 :root {
-  --bg: #f6f7f9;
+  --bg: #f5f5f7;
   --panel: #ffffff;
-  --border: #d9dde3;
-  --text: #1d2330;
-  --muted: #6b7484;
-  --accent: #2f6fde;
-  --accent-soft: #e6eefc;
+  --border: #d2d2d7;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --accent: #007aff;
+  --accent-soft: #e5f0ff;
   --on-accent: #ffffff;
-  --expr: #7a4dc9;
-  --eff: #b0651a;
-  --danger: #c93a3a;
+  --selected-blur: #dcdce0; /* selected rows while the tree is not focused */
+  /* Select arrow, drawn like .caret; a data URI can't use currentColor, so one per theme in --muted. */
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236e6e73' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --expr: #8944ab;
+  --eff: #c93400;
+  --danger: #d70015;
   --on-danger: #ffffff;
-  --ok: #2e8b57;
+  --ok: #248a3d;
+  --shadow-menu: 0 0 0 1px rgb(0 0 0 / 0.04), 0 2px 4px rgb(0 0 0 / 0.08), 0 8px 24px rgb(0 0 0 / 0.16);
+  --shadow-dialog: 0 0 0 1px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.1), 0 20px 48px rgb(0 0 0 / 0.24);
+  --focus-ring: color-mix(in srgb, var(--accent) 45%, var(--panel));
   --excluded: 0.4;
   font: 13px/1.4 Geist, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -47,19 +53,23 @@
 /* data-theme is always set before first paint by the inline script in index.html. */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #14171c;
-  --panel: #1c2027;
-  --border: #2e343e;
-  --text: #eef1f5;
-  --muted: #9ba4b3;
-  --accent: #6b9cff;
-  --accent-soft: #23314d;
-  --on-accent: #14171c; /* white on the light blue fails contrast */
-  --expr: #b89af0;
-  --eff: #e0a060;
-  --danger: #ff7272;
-  --on-danger: #14171c; /* white on the light red fails contrast */
-  --ok: #5cc98a;
+  --bg: #1e1e1e;
+  --panel: #252527;
+  --border: #3a3a3c;
+  --text: #f5f5f7;
+  --muted: #98989d;
+  --accent: #0a84ff;
+  --accent-soft: #1c3a5e;
+  --on-accent: #ffffff;
+  --selected-blur: #3a3a3c;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2398989d' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --expr: #bf5af2;
+  --eff: #ff9f0a;
+  --danger: #ff453a;
+  --on-danger: #ffffff;
+  --ok: #30d158;
+  --shadow-menu: 0 0 0 1px rgb(0 0 0 / 0.5), 0 2px 4px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.5);
+  --shadow-dialog: 0 0 0 1px rgb(0 0 0 / 0.5), 0 4px 12px rgb(0 0 0 / 0.3), 0 20px 48px rgb(0 0 0 / 0.6);
   --excluded: 0.42;
 }
 
@@ -99,53 +109,61 @@ body {
   flex-wrap: wrap;
 }
 #toolbar .brand { margin-right: 8px; }
-#toolbar .sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+#toolbar .sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
 #toolbar .file-name { font-size: 20px; }
 #toolbar .repo-link { margin-left: auto; display: flex; color: var(--muted); }
 #toolbar .repo-link:hover { color: var(--text); }
 /* Chevrons drawn with borders: the ▾ and ▸ glyphs are too small to read at the toolbar's font size. */
-#toolbar .menu-trigger { display: inline-flex; align-items: center; gap: 6px; }
+/* Plain toolbar buttons, as on macOS: no frame until pointed at or open. */
+#toolbar .menu-trigger { display: inline-flex; align-items: center; gap: 6px; border-color: transparent; background: none; box-shadow: none; }
+#toolbar .menu-trigger:hover:not(:disabled), #toolbar span:has(> .menu-list:popover-open) > .menu-trigger { background: color-mix(in srgb, var(--text) 8%, var(--panel)); }
 .caret { width: 5px; height: 5px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); }
 .caret.right { transform: translateX(-2px) rotate(-45deg); }
 .menu-list {
   position: fixed;
   inset: auto;
   margin: 0;
-  padding: 4px;
-  min-width: 140px;
+  padding: 5px;
+  min-width: 160px;
   background: var(--panel);
   color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+  border: 0;
+  border-radius: 8px;
+  box-shadow: var(--shadow-menu);
+  transform-origin: top left; /* grows out of its trigger */
 }
 .menu-list:popover-open { display: flex; flex-direction: column; }
-.menu-list button { border: 0; text-align: left; display: flex; justify-content: space-between; gap: 16px; }
+.menu-list button { border: 0; border-radius: 4px; padding: 4px 8px; background: none; box-shadow: none; text-align: left; display: flex; justify-content: space-between; gap: 16px; }
+/* The current entry (the active BOM). */
 .menu-list button.active { background: var(--accent-soft); }
+/* Highlighted entry, including the keyboard pick in completions: solid accent with white text, as in macOS menus. */
+:is(.menu-list button:is(:hover, :focus-visible), .completions button.active):not(:disabled),
+.submenu:has(> .menu-list:popover-open) > button { background: var(--accent); color: var(--on-accent); outline: none; }
+:is(.menu-list button:is(:hover, :focus-visible), .completions button.active):not(:disabled) .muted,
+.submenu:has(> .menu-list:popover-open) > button .muted { color: inherit; }
 .menu-list button.check-item { justify-content: flex-start; gap: 6px; }
 .menu-list .check { width: 1em; text-align: center; }
 .menu-list .caret { margin-left: auto; align-self: center; flex-shrink: 0; }
 .menu-list .submenu { display: contents; } /* trigger stays a full-width entry */
-.submenu:has(> .menu-list:popover-open) > button { background: var(--accent-soft); }
-.menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+.menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 5px 8px; }
 
 dialog {
   background: var(--panel);
   color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
+  border: 0;
+  border-radius: 12px;
+  padding: 20px;
   min-width: 300px;
-  box-shadow: 0 8px 32px rgb(0 0 0 / 0.3);
+  box-shadow: var(--shadow-dialog);
 }
 dialog::backdrop { background: rgb(0 0 0 / 0.35); }
 /* CSV import preview: name and type side by side, then a scrolling structure or error list. */
 .import-fields { display: flex; gap: 8px; }
 .import-fields label:first-child { flex: 1; }
-.import-preview { width: max-content; max-height: 50vh; max-width: min(900px, calc(100vw - 64px)); overflow: auto; border: 1px solid var(--border); border-radius: 4px; }
+.import-preview { width: max-content; max-height: 50vh; max-width: min(900px, calc(100vw - 64px)); overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
 .import-preview .errors { margin: 6px 0; }
 .import-missing { margin: -4px 0 8px; padding-left: 40px; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 main {
   /* Each side panel gets at most half of what is left after 240px for the tree, also when the window shrinks; the stored
@@ -185,7 +203,7 @@ body.no-doc .resizer { display: none; }
 
 h2 { font-size: 14px; margin: 0 0 8px; }
 h2:not(:first-child) { margin-top: 20px; }
-h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 18px 0 6px; }
+h3 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 18px 0 6px; }
 /* Collapsible editor sections: the heading is the toggle, with a chevron pointing down when open. */
 summary { list-style: none; cursor: pointer; }
 summary::-webkit-details-marker { display: none; }
@@ -206,20 +224,30 @@ input, select, textarea, button {
   color: var(--text);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 6px;
   padding: 5px 7px;
 }
+/* Native checkboxes, radios and date pickers in the accent colour. */
+:root { accent-color: var(--accent); }
 textarea { resize: vertical; width: 100%; }
-input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+/* Own arrow instead of the browser's, which sits against the edge and differs per browser. */
+select { appearance: none; padding-right: 24px; background-image: var(--select-arrow); background-repeat: no-repeat; background-position: right 8px center; background-size: 10px 6px; }
+/* macOS focus ring: a soft accent halo around the field's own border. */
+input:focus, select:focus, textarea:focus { outline: 3px solid var(--focus-ring); outline-offset: 0; border-color: var(--accent); }
+/* Buttons and pickers sit slightly raised: a 1px opaque lower edge. */
+button, select { box-shadow: 0 1px 0 color-mix(in srgb, var(--border) 60%, var(--bg)); }
 button { cursor: pointer; background: var(--panel); }
-button:hover:not(:disabled) { background: var(--accent-soft); }
+button:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 5%, var(--panel)); }
+/* Pressed: instant, on pointer-down. */
+button:active:not(:disabled) { background: color-mix(in srgb, var(--text) 12%, var(--panel)); }
 button:disabled { opacity: 0.45; cursor: default; }
-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 1px; }
 button.danger { color: var(--danger); }
 /* The default action of a dialog or panel; mixing with --text darkens it in light mode and lightens it in dark. */
 button.primary { --fill: var(--accent); background: var(--fill); border-color: var(--fill); color: var(--on-accent); font-weight: 500; }
 button.primary.danger { --fill: var(--danger); color: var(--on-danger); }
-button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--fill) 85%, var(--text)); }
+button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--fill) 88%, var(--text)); }
+button.primary:active:not(:disabled) { background: color-mix(in srgb, var(--fill) 75%, var(--text)); }
 /* Type pickers in the editor are as wide as their widest option; the field beside them takes the rest of the row. */
 #editor .row > :is(select.type-select, label:has(> select.type-select)) { flex: none; }
 #editor select.type-select { align-self: flex-start; }
@@ -254,7 +282,7 @@ button.icon.danger:is(:hover, :focus-visible):not(:disabled) { color: var(--dang
 .errors { color: var(--danger); margin: -4px 0 6px; padding-left: 18px; font-size: 12px; }
 .errors:empty { display: none; }
 .hint { margin-top: 0; }
-.status { padding: 4px 8px; border-radius: 4px; background: color-mix(in srgb, currentColor 12%, transparent); }
+.status { padding: 4px 8px; border-radius: 6px; background: color-mix(in srgb, currentColor 12%, var(--panel)); }
 .status.st-included { color: var(--ok); }
 .status:not(.st-included) { color: var(--danger); }
 
@@ -286,18 +314,25 @@ body.no-doc #tree .placeholder { display: block; }
 .tree-table th { width: 1%; }
 .tree-table .filler { width: auto; }
 /* :where() keeps this at zero specificity so hover and selection still win. */
-:where(:root[data-banded] .tree-table tbody tr.band) { background: color-mix(in srgb, var(--border) 30%, transparent); }
-.tree-table td { padding: 4px 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent); }
+:where(:root[data-banded] .tree-table tbody tr.band) { background: color-mix(in srgb, var(--text) 3%, var(--panel)); }
+.tree-table td { padding: 4px 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, var(--panel)); }
 .tree-table tbody tr { cursor: default; }
 /* Stand-ins for the rows above and below the view, which are not rendered. */
 .tree-table tr.spacer td { padding: 0; border: 0; }
-.tree-table tbody tr:not(.spacer):hover { background: color-mix(in srgb, var(--accent-soft) 50%, transparent); }
-.tree-table tbody tr.selected { background: var(--accent-soft); }
+.tree-table tbody tr:not(.spacer):hover { background: color-mix(in srgb, var(--accent-soft) 55%, var(--panel)); }
+/* Selection as in Finder: accent with white text while the tree has focus, gray otherwise. */
+.tree-table tbody tr.selected { background: var(--selected-blur); }
+.tree-table:focus-within tbody tr.selected { background: var(--accent); }
+.tree-table:focus-within tbody tr.selected :is(td, .twisty, .muted) { color: var(--on-accent); }
 .tree-table tr.drop-into td { background: var(--accent-soft); box-shadow: inset 0 -2px var(--accent), inset 0 2px var(--accent); }
 .tree-table tr.drop-before td { box-shadow: inset 0 2px var(--accent); }
 .tree-table tr.drop-after td { box-shadow: inset 0 -2px var(--accent); }
 .tree-table:focus tr.focused td:first-child { box-shadow: inset 2px 0 var(--accent); }
-.tree-table .twisty { display: inline-block; width: 16px; color: var(--muted); cursor: pointer; text-align: center; margin-right: 4px; font-size: 15px; line-height: 1; }
+.tree-table:focus tr.focused.selected td:first-child { box-shadow: inset 2px 0 var(--on-accent); }
+/* Disclosure chevron (a .caret inside), pointing down when expanded and right when collapsed. */
+.tree-table .twisty { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 1em; vertical-align: -0.1em; color: var(--muted); cursor: pointer; margin-right: 4px; }
+.tree-table .twisty .caret { width: 6px; height: 6px; }
+.tree-table .twisty .caret.right { transform: translate(-1px, -1px) rotate(-45deg); }
 .tree-table .twisty.leaf { cursor: default; }
 .tree-table .twisty:hover:not(.leaf) { color: var(--accent); }
 .tree-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -306,6 +341,7 @@ body.no-doc #tree .placeholder { display: block; }
 .tree-table td.expr > span { display: inline-block; max-width: 48ch; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 .tree-table td.eff { color: var(--eff); }
 .tree-table .cell-edit { margin: -3px -5px; padding: 2px 4px; text-align: inherit; max-width: none; }
+.tree-table select.cell-edit { padding-right: 20px; background-position: right 6px center; }
 .tree-table .id-prefix { margin-right: 6px; }
 .tree-table tr:not(.st-included) td { opacity: var(--excluded); }
 .tree-table tr:not(.st-included) td.name > span:nth-child(2) { text-decoration: line-through; }
@@ -333,11 +369,11 @@ body.aligning .align-view { display: grid; grid-template-columns: 1fr 80px 1fr; 
   transform: translateX(-50%);
   max-width: min(600px, calc(100vw - 32px));
   padding: 8px 14px;
-  border-radius: 6px;
+  border-radius: 10px;
   background: var(--text);
   color: var(--bg);
   white-space: pre-line;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+  box-shadow: var(--shadow-menu);
 }
 #toast.error { background: var(--danger); color: var(--on-danger); }
 
@@ -351,3 +387,23 @@ body.aligning .align-view { display: grid; grid-template-columns: 1fr 80px 1fr; 
 }
 .completions { max-height: 240px; overflow-y: auto; font-family: var(--font-mono); }
 .completions button { flex-shrink: 0; }
+
+/*
+ * Entrances: opacity and transform only, so they run on the compositor; the tree never animates. Menus grow out of
+ * their trigger. Without @starting-style support they just appear.
+ */
+.menu-list:popover-open { transition: opacity 120ms ease-out, transform 120ms ease-out; }
+dialog[open] { transition: opacity 150ms ease-out, transform 150ms ease-out; }
+#toast:not([hidden]) { transition: opacity 150ms ease-out, transform 150ms ease-out; }
+@starting-style {
+  .menu-list:popover-open { opacity: 0; transform: scale(0.98); }
+  dialog[open] { opacity: 0; transform: scale(0.97); }
+  #toast:not([hidden]) { opacity: 0; transform: translate(-50%, 4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu-list:popover-open, dialog[open], #toast:not([hidden]) { transition: opacity 100ms ease-out; }
+  @starting-style {
+    .menu-list:popover-open, dialog[open] { transform: none; }
+    #toast:not([hidden]) { transform: translateX(-50%); }
+  }
+}
