@@ -16,6 +16,11 @@ describe('model', () => {
     for (const v of ['', 'abc', '-1']) expect(parseQty(v, 3)).toBe(3);
   });
 
+  it('parseQty accepts A/R in any case', () => {
+    for (const v of ['A/R', 'a/r', ' A/r ']) expect(parseQty(v, 3)).toBe('A/R');
+    expect(parseQty('AR', 3)).toBe(3);
+  });
+
   it('parseUnit clears on blank and keeps the current unit for anything but a whole number of 1 or more', () => {
     expect(parseUnit('1', 5)).toBe(1);
     expect(parseUnit('100', 5)).toBe(100);

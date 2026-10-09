@@ -187,7 +187,7 @@ function relationSection(app: App, rel: Relation): HTMLElement[] {
       h(
         'div',
         { className: 'row' },
-        field('Qty', input('rel-qty', rel.qty, (v) => set({ qty: parseQty(v, rel.qty) }), { ...MONO, type: 'number' })),
+        field('Qty', input('rel-qty', rel.qty, (v) => set({ qty: parseQty(v, rel.qty) }), { ...MONO, placeholder: 'number or A/R', title: 'A number of 0 or more, or A/R (as required)' })),
         field('Find no.', input('rel-find', rel.findNo, (v) => set({ findNo: v }), MONO)),
       ),
     ),

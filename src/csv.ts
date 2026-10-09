@@ -12,6 +12,7 @@ import {
   isIsoDate,
   isUnit,
   normalizeUom,
+  AS_REQUIRED,
   parseQty,
   setItemUom,
   type Bom,
@@ -219,8 +220,8 @@ function relationFields(get: (name: string) => string, doc: BomDocument, fail: (
   const patch: Partial<Relation> = {};
   const qty = get('Qty');
   if (qty) {
-    patch.qty = parseQty(qty, NaN);
-    if (Number.isNaN(patch.qty)) fail(`Qty '${qty}' must be a number of 0 or more`);
+    patch.qty = parseQty(qty.toUpperCase() === 'AR' ? AS_REQUIRED : qty, NaN); // spreadsheets often drop the slash
+    if (Number.isNaN(patch.qty)) fail(`Qty '${qty}' must be a number of 0 or more, or A/R or AR`);
   }
   if (get('FindNo')) patch.findNo = get('FindNo');
   const variant = get('Variant');

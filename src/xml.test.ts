@@ -62,6 +62,12 @@ describe('xml', () => {
     expect(() => parseXml(sample.replace('<uom>l</uom>', ''))).toThrow(/P-11: unknown unit 'l'/);
   });
 
+  it('round-trips an A/R qty', () => {
+    const doc = parseXml(sample.replace('qty="1" findNo="10"', 'qty="A/R" findNo="10"'));
+    expect(doc.boms[0].relations.find((r) => r.id === 'R1')?.qty).toBe('A/R');
+    expect(parseXml(serializeXml(doc))).toEqual(doc);
+  });
+
   it('accepts a BOM without a type', () => {
     expect(parseXml(sample.replace(' type="EBOM"', '')).boms[0].type).toBeUndefined();
   });

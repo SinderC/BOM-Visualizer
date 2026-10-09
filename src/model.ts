@@ -20,12 +20,16 @@ export interface ItemType {
   prefix: string; // start of the ids of items of this type; '' gives bare numbers
 }
 
+/** "As required": the quantity is not fixed (glue, paint, shims, …). */
+export const AS_REQUIRED = 'A/R';
+export type Qty = number | typeof AS_REQUIRED;
+
 /** Parent→child usage within one BOM. Variant and effectivity live here, not on the item. */
 export interface Relation {
   id: string;
   parentId: string;
   childId: string;
-  qty: number;
+  qty: Qty;
   findNo: string;
   variantExpr: string;
   eff: Effectivity;
@@ -482,8 +486,9 @@ export function addRelation(doc: BomDocument, bom: Bom, parentId: string, childI
   return rel;
 }
 
-/** Parses an edited qty; blank, non-numeric or negative input keeps `current`. Zero is valid. */
-export function parseQty(v: string, current: number): number {
+/** Parses an edited qty: a number of 0 or more, or A/R (any case); anything else keeps `current`. */
+export function parseQty(v: string, current: Qty): Qty {
+  if (v.trim().toUpperCase() === AS_REQUIRED) return AS_REQUIRED;
   const n = Number(v);
   return v !== '' && Number.isFinite(n) && n >= 0 ? n : current;
 }

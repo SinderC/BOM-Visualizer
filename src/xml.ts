@@ -1,4 +1,4 @@
-import { BOM_TYPES, DEFAULT_ITEM_TYPES, DEFAULT_UOMS, isUnit, normalizeUom, validateDocument, type Bom, type BomType, type BomDocument, type Effectivity, type ItemType, type Relation } from './model';
+import { BOM_TYPES, DEFAULT_ITEM_TYPES, DEFAULT_UOMS, isUnit, normalizeUom, parseQty, validateDocument, type Bom, type BomType, type BomDocument, type Effectivity, type ItemType, type Relation } from './model';
 
 const FORMAT_VERSION = 1;
 
@@ -59,8 +59,8 @@ function parseItemType(t: Element): ItemType {
 
 function parseRelation(r: Element): Relation {
   const id = req(r, 'id');
-  const qty = Number(r.getAttribute('qty') ?? 1);
-  if (!Number.isFinite(qty) || qty < 0) throw new Error(`Relation ${id}: invalid qty`);
+  const qty = parseQty(r.getAttribute('qty') ?? '1', NaN);
+  if (Number.isNaN(qty)) throw new Error(`Relation ${id}: invalid qty`);
   const e = kids(r, 'effectivity')[0];
   const eff: Effectivity = {};
   if (e) {

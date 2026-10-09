@@ -41,7 +41,7 @@ One XML file holds one `<bomDocument>`: shared variant families and items, one o
 | `uoms` | Ordered list of units of measure (`<uom>`) besides the built-in `each`. Optional; if absent, the defaults `kg`, `g`, `m`, `mm`, `m²`, `l` apply. |
 | `item` | Part identity (`id`, `type`, `uom`, `name`, `description`). `type` is optional and must be listed in `itemTypes`. `uom` is optional and must be listed in `uoms`; absent (or `each`) = each. Relation quantities are in the child item's unit. Shared by all BOMs; may be used under many parents. |
 | `bom` | `id`, `name`, `root` (item id). Holds its own relations. |
-| `relation` | Parent→child usage: `id`, `parent`, `child`, `qty`, `findNo`. **Relation ids are unique across the whole document.** |
+| `relation` | Parent→child usage: `id`, `parent`, `child`, `qty` (a number of 0 or more, or `A/R` for as required), `findNo`. **Relation ids are unique across the whole document.** |
 | `variant` | Optional boolean expression (see below). Missing/blank = always included. |
 | `effectivity` | Optional. Dates are ISO `yyyy-mm-dd`, units are whole numbers of 1 or more; all bounds inclusive. Omitted bound = open; `unitTo` omitted (or `UP`) = up. |
 | `alignment` | Link between two occurrences in different BOMs (`source`, `target`). Edited in the alignment view; the app removes it when a relation is removed or moved so that either address no longer exists. Alignments to missing occurrences are kept on load but not shown. |
@@ -94,7 +94,7 @@ A-100,P-500,Engine oil,Part,l,,5.5,30,,,,,
 - Exactly one row has a blank `Parent`: the BOM root. Its relation columns are ignored.
 - Every other row is one relation; the same pair on several rows is several usages. Each `Parent` must be the `ID` of some row.
 - An `ID` already in the document reuses that item, unchanged. A new one is created from the first row with it; `Type` may be blank, and `UoM` blank = each.
-- `Qty` blank = 1; `FindNo` blank = next after the highest under the parent. `Variant` uses the expression syntax below.
+- `Qty` blank = 1, `A/R` or `AR` (any case) = as required, saved as `A/R`; `FindNo` blank = next after the highest under the parent. `Variant` uses the expression syntax below.
 - Item types, units, variant families and values the document lacks are listed in the preview under **Create missing item types, units and variant values** (checked by default); unchecked, they are problems. A new type's ID prefix is the start its items' IDs share up to the first digit (`G-100`, `G-101` → `G-`); new values are added after the family's existing ones. Effectivity as in the XML: `yyyy-mm-dd`, whole units of 1 or more, `UP` or blank = open.
 - Any error blocks Create; the preview lists the problems by spreadsheet row number instead. The import is one undo step.
 

@@ -47,6 +47,10 @@ describe('csv', () => {
     expect(() => parseCsv('a\n"x')).toThrow('not closed');
   });
 
+  it('reads A/R as an as-required qty', () => {
+    expect(imported('Parent,ID,Qty\n,A,\nA,B,a/r\nA,C,AR\n').bom.relations.map((r) => r.qty)).toEqual(['A/R', 'A/R']);
+  });
+
   it('imports the example into a new BOM on a copy of the document', () => {
     const { before: doc, doc: out, bom, reused } = imported(EXAMPLE);
     expect(reused.size).toBe(0);
@@ -146,7 +150,7 @@ describe('csv', () => {
 
   it('reports structure and field problems together, sorted by row', () => {
     expect(importError('Parent,ID,Qty\nZ,B,x\n,A,\n,C,\n')).toBe(
-      ['Exactly one row needs a blank Parent (the root); found 2', 'Row 2: parent Z is not the ID of any row', "Row 2: Qty 'x' must be a number of 0 or more"].join('\n'),
+      ['Exactly one row needs a blank Parent (the root); found 2', 'Row 2: parent Z is not the ID of any row', "Row 2: Qty 'x' must be a number of 0 or more, or A/R or AR"].join('\n'),
     );
   });
 
@@ -162,7 +166,7 @@ describe('csv', () => {
     ].join('\n');
     expect(importError(csv)).toBe(
       [
-        "Row 3: Qty '-1' must be a number of 0 or more",
+        "Row 3: Qty '-1' must be a number of 0 or more, or A/R or AR",
         "Row 4: variant: 'V12' is not a value of ENGINE",
         "Row 5: EffDateFrom '2026-02-30' must be a yyyy-mm-dd date",
         "Row 5: EffUnitTo '0' must be a whole number of 1 or more",
