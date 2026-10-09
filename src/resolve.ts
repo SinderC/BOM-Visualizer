@@ -42,9 +42,21 @@ export function resolve(doc: BomDocument, bom: Bom, ctx: ConfigContext): Occurre
   return build(doc.items.get(bom.rootId)!, undefined, [], true);
 }
 
-/** The occurrence and all its descendants, depth first. */
-export function flatten(occ: Occurrence): Occurrence[] {
-  return [occ, ...occ.children.flatMap(flatten)];
+const flattened = new WeakMap<Occurrence, readonly Occurrence[]>();
+
+/** The occurrence and all its descendants, depth first. Kept per occurrence, as renders ask again for the same tree. */
+export function flatten(occ: Occurrence): readonly Occurrence[] {
+  let all = flattened.get(occ);
+  if (!all) {
+    const list: Occurrence[] = [];
+    const add = (o: Occurrence) => {
+      list.push(o);
+      o.children.forEach(add);
+    };
+    add(occ);
+    flattened.set(occ, (all = list));
+  }
+  return all;
 }
 
 function judge(

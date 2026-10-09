@@ -40,7 +40,7 @@ export const editPane = (app: App): Pane => ({
 /** Indented tree-table (structure-manager style) with collapse, selection and keyboard navigation. */
 export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   let visible: Occurrence[] = []; // rows in display order, for keyboard navigation
-  let all: Occurrence[] = []; // all rows in display order, shown or not
+  let all: readonly Occurrence[] = []; // all rows in display order, shown or not
   const tbody = h('tbody');
   const heads = COLUMNS.map((c) => h('th', {}, c.label));
   const thead = h('thead', {}, h('tr', {}, ...heads, h('th', { className: 'filler' })));
@@ -50,7 +50,8 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   // Virtualized: only the rows in view, and OVERSCAN more on either side, are in the DOM; spacer rows stand in for the
   // rest. Large BOMs have tens of thousands of rows, which take seconds to build on every change.
   let depths: number[] = []; // indent level of each row of `visible`
-  let indexOf = new Map<string, number>(); // address → index in `visible`
+  let indexOf: Map<string, number> | undefined; // address → index in `visible`; built when first needed
+  let shown: { root: Occurrence; collapsed: Set<string>; hideExcluded: boolean; ch: number } | undefined; // what `visible` and the widths are of
   let marks = { selected: new Set<string>(), unaligned: undefined as Set<string> | undefined };
   let rowHeight = 25; // measured on paint
   let painted = ''; // range of the rows in the DOM, so that a scroll within it repaints nothing
@@ -284,39 +285,63 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   /** Rows listed in `unaligned` are marked as such. */
   function render(root: Occurrence, unaligned?: Set<string>): void {
     const { collapsed } = app.state;
-    all = flatten(root);
-    visible = [];
-    depths = [];
-    // Excluded rows only exist while the configuration is applied; their children are excluded too.
     const hideExcluded = isHideExcluded();
-    const walk = (occ: Occurrence, depth: number) => {
-      if (hideExcluded && occ.status !== 'included') return;
-      visible.push(occ);
-      depths.push(depth);
-      if (!collapsed.has(occ.address)) occ.children.forEach((c) => walk(c, depth + 1));
-    };
-    walk(root, 0);
-    indexOf = new Map(visible.map((o, i) => [o.address, i]));
+    const ch = charWidth(); // changes when the monospace web font has loaded
+    // A change of selection only repaints: listing and measuring all rows is most of a render for large BOMs.
+    const same =
+      shown?.root === root &&
+      shown.hideExcluded === hideExcluded &&
+      shown.ch === ch &&
+      shown.collapsed.size === collapsed.size &&
+      [...collapsed].every((a) => shown!.collapsed.has(a));
+    if (!same) {
+      all = flatten(root);
+      visible = [];
+      depths = [];
+      // Excluded rows only exist while the configuration is applied; their children are excluded too.
+      const walk = (occ: Occurrence, depth: number) => {
+        if (hideExcluded && occ.status !== 'included') return;
+        visible.push(occ);
+        depths.push(depth);
+        if (!collapsed.has(occ.address)) occ.children.forEach((c) => walk(c, depth + 1));
+      };
+      walk(root, 0);
+      indexOf = undefined;
+      fitColumns(ch);
+      shown = { root, collapsed: new Set(collapsed), hideExcluded, ch };
+    }
     marks = { selected: new Set(selection()), unaligned };
-    fitColumns();
     painted = '';
     paint(); // first, so the spacers give the table its full height to scroll in
     scrollToFocused();
     paint();
   }
 
-  /** Fixes each column at the width of its widest shown cell, so that columns do not change width while scrolling. */
-  function fitColumns(): void {
+  /** Width of a character of the cells' monospace font. */
+  function charWidth(): number {
     const probe = h('span', { className: 'mono' }, '0'.repeat(100));
     probe.style.cssText = 'position: absolute; visibility: hidden';
     container.append(probe);
-    const ch = probe.getBoundingClientRect().width / 100; // cells use a monospace font
+    const ch = probe.getBoundingClientRect().width / 100;
     probe.remove();
+    return ch;
+  }
+
+  /**
+   * Fixes each column at the width of its widest shown cell, so that columns do not change width while scrolling.
+   * `ch` is the width of a character: cells use a monospace font.
+   */
+  function fitColumns(ch: number): void {
     const widest = heads.map(() => 0);
+    // Only the name cell depends on the row's depth; the others are the same on all rows of a relation (or the root).
+    const measured = new Set<object>();
     visible.forEach((occ, i) => {
+      widest[0] = Math.max(widest[0], NAME_INDENT + depths[i] * INDENT + occ.item.name.length * ch);
+      const key = occ.relation ?? occ.item;
+      if (measured.has(key)) return;
+      measured.add(key);
       cellTexts(occ).forEach((text, col) => {
-        const indent = col ? 0 : NAME_INDENT + depths[i] * INDENT;
-        widest[col] = Math.max(widest[col], indent + Math.min(text.length, col === VARIANT_COL ? VARIANT_MAX_CH : Infinity) * ch);
+        if (col) widest[col] = Math.max(widest[col], Math.min(text.length, col === VARIANT_COL ? VARIANT_MAX_CH : Infinity) * ch);
       });
     });
     // + cell padding, and a pixel for rounding
@@ -363,8 +388,9 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
 
   /** Scrolls the focused row into view, below the sticky header, if it is not. */
   function scrollToFocused(): void {
-    const i = indexOf.get(pane.selected() ?? '');
-    if (i === undefined) return;
+    const occ = app.occurrence(pane.selected());
+    const i = occ ? visible.indexOf(occ) : -1;
+    if (i < 0) return;
     const top = rowsTop() + i * rowHeight - container.getBoundingClientRect().top; // relative to the view
     const head = thead.offsetHeight;
     if (top < head) container.scrollTop += top - head;
@@ -374,7 +400,7 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   /** Viewport y of the centre of the address's row; a collapsed or hidden row gives its nearest shown ancestor's. */
   function rowY(address: string): { y: number; ancestor: boolean } | undefined {
     for (let a = address; ; a = parentAddress(a)) {
-      const i = indexOf.get(a);
+      const i = (indexOf ??= new Map(visible.map((o, k) => [o.address, k]))).get(a);
       if (i !== undefined) return { y: rowsTop() + (i + 0.5) * rowHeight, ancestor: a !== address };
       if (a === parentAddress(a)) return undefined;
     }
