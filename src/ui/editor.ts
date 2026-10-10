@@ -1,4 +1,5 @@
 import { activeBom, openDoc, type App } from '../app';
+import { setExpanded } from '../expanded';
 import { validate } from '../expr';
 import {
   addItem,
@@ -252,7 +253,6 @@ function multiSection(app: App, focused: Occurrence): HTMLElement[] {
 
 function structureSection(app: App, occ: Occurrence): HTMLElement[] {
   const doc = openDoc(app.state);
-  const { collapsed } = app.state;
   const bom = activeBom(app.state);
 
   const existing = h('select', { name: 'add-existing' }, h('option', { value: '' }, '— new item —'));
@@ -286,7 +286,7 @@ function structureSection(app: App, occ: Occurrence): HTMLElement[] {
       const childId = existing.value || addItem(doc, name.value.trim() || 'New item', '', addChildType, newId).id;
       const rel = addRelation(doc, bom, occ.item.id, childId);
       addChildName = addChildId = '';
-      collapsed.delete(occ.address);
+      setExpanded(occ, true);
       if (!stay) app.state.selected = occurrencePath(bom.id, [...occ.path, rel.id]);
     });
   const add = button({ className: 'primary' }, () => addNew(false), 'Add child');

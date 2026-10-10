@@ -1,6 +1,7 @@
 import './styles.css';
 import { activeBom, resetView, type App, type State } from './app';
 import { loadAutosave, writeAutosave, type Autosaved } from './autosave';
+import { resetExpanded, storedExpanded, storeExpanded } from './expanded';
 import { createHistory } from './history';
 import { findBom, type BomDocument } from './model';
 import { flatten, resolve, type Occurrence } from './resolve';
@@ -23,7 +24,6 @@ const state: State = {
   fileName: 'car.xml',
   ctx: { enabled: isApplyConfig(), options: { ENGINE: 'V8', MARKET: 'US', TRIM: 'SPORT' } },
   extraSelected: [],
-  collapsed: new Set(),
 };
 
 let index = new Map<string, Occurrence>();
@@ -69,6 +69,7 @@ const app: App = {
     state.bomId = doc.boms[0].id;
     state.fileName = fileName;
     resetView(state);
+    resetExpanded();
     state.ctx.options = {};
     resetDocument();
   },
@@ -76,6 +77,7 @@ const app: App = {
     state.doc = undefined;
     state.fileName = '';
     resetView(state);
+    resetExpanded();
     resetDocument();
   },
   isDirty: () => history.snapshot !== cleanSnapshot,
@@ -124,6 +126,7 @@ const alignmentView = createAlignmentView($('tree'), app);
 
 function render(): void {
   renderQueued = false;
+  storeExpanded();
   const focusedName = (document.activeElement as HTMLInputElement | null)?.name;
   renderToolbar($('toolbar'), app);
   document.title = state.doc ? `${app.isDirty() ? '• ' : ''}${state.fileName} - BOM Visualizer` : 'BOM Visualizer';
@@ -194,6 +197,7 @@ void loadAutosave().then((restored) => {
     if (!restored.xml) app.closeDocument();
     else {
       app.loadDocument(parseXml(restored.xml), restored.fileName);
+      resetExpanded(storedExpanded);
       Object.assign(state.ctx, restored.config);
       if (restored.dirty ?? true) cleanSnapshot = undefined;
       app.commit();

@@ -1,4 +1,5 @@
 import { activeBom, openDoc, resetView, type App, type State } from '../app';
+import { setExpanded } from '../expanded';
 import { createDocument, occurrencePath, type Bom } from '../model';
 import type { Occurrence } from '../resolve';
 import { parseXml, serializeXml } from '../xml';
@@ -357,8 +358,7 @@ function expandTo(app: App, levels: number): void {
   if (!top) return;
   const walk = (occ: Occurrence, depth: number) => {
     if (!occ.children.length) return;
-    if (depth < levels) state.collapsed.delete(occ.address);
-    else state.collapsed.add(occ.address);
+    setExpanded(occ, depth < levels);
     occ.children.forEach((c) => walk(c, depth + 1));
   };
   app.view(() => walk(top, 0));

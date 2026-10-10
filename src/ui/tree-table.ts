@@ -1,5 +1,6 @@
 import { activeBom, openDoc, type App } from '../app';
 import { formatEffEnd } from '../effectivity';
+import { expandedVersion, isExpanded, setExpanded } from '../expanded';
 import { validate } from '../expr';
 import { DEFAULT_UOM, lockedIdPrefix, moveRelations, occurrencePath, parentAddress, parseQty, renameItem, setItemType, setItemUom, updateItem, updateRelation } from '../model';
 import { flatten, type Occurrence } from '../resolve';
@@ -51,7 +52,7 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   // rest. Large BOMs have tens of thousands of rows, which take seconds to build on every change.
   let depths: number[] = []; // indent level of each row of `visible`
   let indexOf: Map<string, number> | undefined; // address → index in `visible`; built when first needed
-  let shown: { root: Occurrence; collapsed: Set<string>; hideExcluded: boolean; ch: number } | undefined; // what `visible` and the widths are of
+  let shown: { root: Occurrence; expanded: number; hideExcluded: boolean; ch: number } | undefined; // what `visible` and the widths are of
   let marks = { selected: new Set<string>(), unaligned: undefined as Set<string> | undefined };
   let rowHeight = 25; // measured on paint
   let painted = ''; // range of the rows in the DOM, so that a scroll within it repaints nothing
@@ -60,16 +61,17 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
 
   const select = (address: string | undefined, extra?: string[]) => app.view(() => pane.select(address, extra));
   const selection = () => [pane.selected(), ...(pane.extra?.() ?? [])].filter((a) => a !== undefined);
-  const setCollapsed = (address: string, collapse: boolean) =>
-    app.view(() => (collapse ? app.state.collapsed.add(address) : app.state.collapsed.delete(address)));
+  const setOpen = (occ: Occurrence, open: boolean) => app.view(() => setExpanded(occ, open));
 
   table.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
     const address = target.closest('tr')?.dataset.address;
     // A click in an in-place edit field would re-render the row, which replaces the field and closes a picker's list.
     if (!address || target.closest('.cell-edit')) return;
-    if (target.closest('.twisty')) setCollapsed(address, !app.state.collapsed.has(address));
-    else if (pane.extra && (e.ctrlKey || e.metaKey)) toggle(address);
+    if (target.closest('.twisty')) {
+      const occ = app.occurrence(address);
+      if (occ) setOpen(occ, !isExpanded(occ));
+    } else if (pane.extra && (e.ctrlKey || e.metaKey)) toggle(address);
     else if (pane.extra && e.shiftKey) selectRange(address);
     else select(address);
   });
@@ -233,7 +235,7 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
     app.tryCommit(() => {
       const bom = activeBom(app.state);
       const rels = moveRelations(openDoc(app.state), bom, ids, parent.item.id, beforeId, copy);
-      app.state.collapsed.delete(parent.address);
+      setExpanded(parent, true);
       const [first, ...rest] = rels.map((r) => occurrencePath(bom.id, [...parent.path, r.id]));
       pane.select(first, rest);
     });
@@ -258,7 +260,7 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   table.addEventListener('keydown', (e) => {
     const i = visible.findIndex((o) => o.address === pane.selected());
     const occ = visible[i];
-    const isOpen = occ && occ.children.length > 0 && !app.state.collapsed.has(occ.address);
+    const isOpen = occ && occ.children.length > 0 && isExpanded(occ);
     switch (e.key) {
       case 'ArrowDown':
         select(visible[Math.min(i + 1, visible.length - 1)]?.address);
@@ -269,11 +271,11 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
       case 'ArrowRight':
         if (!occ?.children.length) return;
         if (isOpen) select(occ.children[0].address);
-        else setCollapsed(occ.address, false);
+        else setOpen(occ, true);
         break;
       case 'ArrowLeft':
         if (!occ) return;
-        if (isOpen) setCollapsed(occ.address, true);
+        if (isOpen) setOpen(occ, false);
         else if (occ.path.length) select(parentAddress(occ.address));
         break;
       default:
@@ -284,7 +286,7 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
 
   /** Rows listed in `unaligned` are marked as such. */
   function render(root: Occurrence, unaligned?: Set<string>): void {
-    const { collapsed } = app.state;
+    const expanded = expandedVersion();
     const hideExcluded = isHideExcluded();
     const ch = charWidth(); // changes when the monospace web font has loaded
     // A change of selection only repaints: listing and measuring all rows is most of a render for large BOMs.
@@ -292,8 +294,7 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
       shown?.root === root &&
       shown.hideExcluded === hideExcluded &&
       shown.ch === ch &&
-      shown.collapsed.size === collapsed.size &&
-      [...collapsed].every((a) => shown!.collapsed.has(a));
+      shown.expanded === expanded;
     if (!same) {
       all = flatten(root);
       visible = [];
@@ -303,12 +304,12 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
         if (hideExcluded && occ.status !== 'included') return;
         visible.push(occ);
         depths.push(depth);
-        if (!collapsed.has(occ.address)) occ.children.forEach((c) => walk(c, depth + 1));
+        if (isExpanded(occ)) occ.children.forEach((c) => walk(c, depth + 1));
       };
       walk(root, 0);
       indexOf = undefined;
       fitColumns(ch);
-      shown = { root, collapsed: new Set(collapsed), hideExcluded, ch };
+      shown = { root, expanded, hideExcluded, ch };
     }
     marks = { selected: new Set(selection()), unaligned };
     painted = '';
@@ -372,7 +373,7 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
 
   function paintRow(i: number): HTMLTableRowElement {
     const occ = visible[i];
-    const row = renderRow(occ, depths[i], app.state.collapsed.has(occ.address), marks.selected.has(occ.address));
+    const row = renderRow(occ, depths[i], !isExpanded(occ), marks.selected.has(occ.address));
     row.classList.toggle('focused', occ.address === pane.selected());
     row.classList.toggle('band', i % 2 === 1);
     row.draggable &&= pane.editable;

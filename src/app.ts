@@ -9,7 +9,6 @@ export interface State {
   ctx: ConfigContext;
   selected?: string; // occurrence address; the focused row of a multi-selection
   extraSelected: string[]; // the other selected rows' addresses
-  collapsed: Set<string>; // occurrence addresses, of any BOM
   // Alignment view: the right-hand BOM and its selection, and the BOM to go back to on exit when it is not the left one.
   align?: { bomId: string; selected?: string; returnTo?: string };
 }
@@ -48,10 +47,9 @@ export function activeBom(state: State): Bom {
   return findBom(doc, state.bomId) ?? doc.boms[0];
 }
 
-/** Clears what is shown of the previous BOM or document: selection, collapsed rows and the alignment view. */
+/** Clears what is shown of the previous BOM or document: selection and the alignment view. */
 export function resetView(state: State): void {
   state.selected = undefined;
   state.extraSelected = [];
-  state.collapsed.clear();
   state.align = undefined;
 }
