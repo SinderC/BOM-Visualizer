@@ -54,8 +54,12 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   let indexOf: Map<string, number> | undefined; // address → index in `visible`; built when first needed
   let shown: { root: Occurrence; expanded: number; hideExcluded: boolean; ch: number } | undefined; // what `visible` and the widths are of
   let marks = { selected: new Set<string>(), unaligned: undefined as Set<string> | undefined };
-  let rowHeight = 25; // measured on paint
-  let painted = ''; // range of the rows in the DOM, so that a scroll within it repaints nothing
+  let rowHeight = 25; // measured on render
+  // Rows of `visible` in the DOM, from `painted.first` up to `painted.last`; a scroll keeps those still in range, so
+  // that it only builds the rows that come into range. Undefined when they are out of date.
+  let painted: { first: number; last: number } | undefined;
+  const [topGap, bottomGap] = [0, 0].map(() => h('td', { colSpan: heads.length + 1 }));
+  const [topSpacer, bottomSpacer] = [topGap, bottomGap].map((td) => h('tr', { className: 'spacer' }, td));
   container.addEventListener('scroll', () => paint());
   new ResizeObserver(() => paint()).observe(container);
 
@@ -312,8 +316,17 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
       shown = { root, expanded, hideExcluded, ch };
     }
     marks = { selected: new Set(selection()), unaligned };
-    painted = '';
+    painted = undefined;
     paint(); // first, so the spacers give the table its full height to scroll in
+    // Measured rather than set in CSS, so that it follows the font; 0 while hidden. Only here: measuring right after
+    // adding rows makes the browser lay them out at once, which made each scroll step slow.
+    const row = topSpacer.nextElementSibling;
+    const measured = row !== bottomSpacer && row?.getBoundingClientRect().height;
+    if (measured && Math.abs(measured - rowHeight) > 0.01) {
+      rowHeight = measured;
+      painted = undefined;
+      paint();
+    }
     scrollToFocused();
     paint();
   }
@@ -352,23 +365,30 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   /** Viewport top of the first row. */
   const rowsTop = () => table.getBoundingClientRect().top + thead.offsetHeight;
 
-  /** Puts the rows in view (and OVERSCAN more on either side) in the DOM, unless they already are. */
+  /** Puts the rows in view (and OVERSCAN more on either side) in the DOM, keeping those already in it. */
   function paint(): void {
     const above = container.getBoundingClientRect().top - rowsTop(); // scrolled past, in px
     const first = Math.max(0, Math.floor(above / rowHeight) - OVERSCAN);
     const last = Math.min(visible.length, Math.ceil((above + container.clientHeight) / rowHeight) + OVERSCAN);
-    if (`${first}:${last}` === painted) return;
-    painted = `${first}:${last}`;
-    const rows: HTMLTableRowElement[] = [];
-    for (let i = first; i < last; i++) rows.push(paintRow(i));
-    tbody.replaceChildren(spacer(first * rowHeight), ...rows, spacer((visible.length - last) * rowHeight));
-    // Measured rather than set in CSS, so that it follows the font; 0 while hidden.
-    const measured = rows[0]?.getBoundingClientRect().height;
-    if (measured && Math.abs(measured - rowHeight) > 0.01) {
-      rowHeight = measured;
-      painted = '';
-      paint();
+    if (painted?.first === first && painted.last === last) return;
+    const keep = painted && first < painted.last && painted.first < last ? painted : undefined;
+    if (!keep) {
+      const rows: HTMLTableRowElement[] = [];
+      for (let i = first; i < last; i++) rows.push(paintRow(i));
+      tbody.replaceChildren(topSpacer, ...rows, bottomSpacer);
+    } else {
+      for (let i = keep.first; i < first; i++) topSpacer.nextElementSibling!.remove();
+      for (let i = last; i < keep.last; i++) bottomSpacer.previousElementSibling!.remove();
+      const before: HTMLTableRowElement[] = [];
+      for (let i = first; i < keep.first; i++) before.push(paintRow(i));
+      topSpacer.after(...before);
+      const after: HTMLTableRowElement[] = [];
+      for (let i = keep.last; i < last; i++) after.push(paintRow(i));
+      bottomSpacer.before(...after);
     }
+    topGap.style.height = `${first * rowHeight}px`;
+    bottomGap.style.height = `${(visible.length - last) * rowHeight}px`;
+    painted = { first, last };
   }
 
   function paintRow(i: number): HTMLTableRowElement {
@@ -380,12 +400,6 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
     row.classList.toggle('unaligned', !!marks.unaligned?.has(occ.address));
     return row;
   }
-
-  const spacer = (height: number) => {
-    const td = h('td', { colSpan: heads.length + 1 });
-    td.style.height = `${height}px`;
-    return h('tr', { className: 'spacer' }, td);
-  };
 
   /** Scrolls the focused row into view, below the sticky header, if it is not. */
   function scrollToFocused(): void {
