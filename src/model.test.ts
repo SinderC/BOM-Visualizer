@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addUom, DEFAULT_UOMS, removeUom, renameUom, setItemUom, uomUsage, addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, removeBom, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, createDocument, moveRelations, sortedChildren, nextId, parseQty, parseUnit, moveFamily, removeFamily, removeRelations, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
+import { addUom, DEFAULT_UOMS, removeUom, renameUom, setItemUom, uomUsage, addAlignment, addBom, isOccurrence, parentAddress, removeAlignment, removeBom, addFamily, addItem, addItemType, addRelation, itemTypeUsage, removeItemType, renameItemType, migrateItemType, setItemType, setItemTypePrefix, lockedIdPrefix, copyRelations, createDocument, moveRelations, sortedChildren, nextId, parseQty, parseUnit, moveFamily, removeFamily, removeRelations, renameFamily, renameItem, setFamilyValues, validateDocument } from './model';
 
 function setup() {
   const doc = createDocument();
@@ -101,6 +101,86 @@ describe('model', () => {
     expect(rel).toMatchObject({ parentId: a.id, qty: 3, variantExpr: 'ENGINE=V8', findNo: '10' });
     expect(() => moveRelations(doc, bom, [rel.id], b.id, undefined, false)).toThrow(/cycle/);
     expect(rel.parentId).toBe(a.id);
+  });
+
+  describe('copyRelations', () => {
+    /** BOM 1: root → a → b (twice, qty 2) and b → c; BOM 2 empty. */
+    function twoBoms() {
+      const { doc, bom, a, b, root } = setup();
+      const c = addItem(doc, 'C', '', 'Part Revision');
+      const ra = addRelation(doc, bom, root, a.id);
+      Object.assign(ra, { qty: 3, variantExpr: 'ENGINE=V8', eff: { unitFrom: 5 } });
+      addRelation(doc, bom, a.id, b.id).qty = 2;
+      addRelation(doc, bom, a.id, b.id);
+      addRelation(doc, bom, b.id, c.id);
+      const other = addBom(doc, 'Other', 'MBOM');
+      return { doc, bom, other, a, b, c, ra };
+    }
+    const children = (bom: { relations: { parentId: string; childId: string }[] }, id: string) =>
+      bom.relations.filter((r) => r.parentId === id).map((r) => r.childId);
+
+    it('copies a relation and the relations below it to another BOM, each item once', () => {
+      const { doc, bom, other, a, b, c, ra } = twoBoms();
+      const [top] = copyRelations(doc, bom, other, [ra.id], other.rootId, undefined, false);
+      expect(top).toMatchObject({ parentId: other.rootId, childId: a.id, qty: 3, variantExpr: 'ENGINE=V8', eff: { unitFrom: 5 }, findNo: '10' });
+      expect(top.eff).not.toBe(ra.eff);
+      expect(children(other, a.id)).toEqual([b.id, b.id]);
+      expect(children(other, b.id)).toEqual([c.id]);
+      expect(other.relations).toHaveLength(4);
+      expect(bom.relations).toHaveLength(4);
+      expect(validateDocument(doc)).toEqual([]);
+    });
+
+    it('keeps the children an item already has in the target BOM', () => {
+      const { doc, bom, other, b, ra } = twoBoms();
+      const d = addItem(doc, 'D');
+      addRelation(doc, other, other.rootId, b.id);
+      addRelation(doc, other, b.id, d.id);
+      copyRelations(doc, bom, other, [ra.id], other.rootId, undefined, false);
+      expect(children(other, b.id)).toEqual([d.id]);
+    });
+
+    it('places copies before a sibling', () => {
+      const { doc, bom, other, b, ra } = twoBoms();
+      const rb = addRelation(doc, other, other.rootId, b.id);
+      const [top] = copyRelations(doc, bom, other, [ra.id], other.rootId, rb.id, false);
+      expect(sortedChildren(other, other.rootId).map((r) => r.id)).toEqual([top.id, rb.id]);
+    });
+
+    it('rejects a cycle through the copied relations and changes nothing', () => {
+      const { doc, bom, other, a, c, ra } = twoBoms();
+      addRelation(doc, other, other.rootId, c.id);
+      const before = JSON.stringify(other);
+      expect(() => copyRelations(doc, bom, other, [ra.id], c.id, undefined, false)).toThrow(/cycle/);
+      expect(JSON.stringify(other)).toBe(before);
+      expect(children(other, c.id)).not.toContain(a.id);
+    });
+
+    it('copies as new items: one per item, with ids by type prefix', () => {
+      const { doc, bom, other, a, b, c, ra } = twoBoms();
+      setItemUom(doc, c.id, 'kg');
+      const items = doc.items.size;
+      const [top] = copyRelations(doc, bom, other, [ra.id], other.rootId, undefined, true);
+      expect(doc.items.size).toBe(items + 3);
+      const a2 = doc.items.get(top.childId)!;
+      expect(a2).toMatchObject({ name: 'A', id: expect.stringMatching(/^I\d+$/) });
+      expect(a2.id).not.toBe(a.id);
+      const [b2, b2again] = children(other, a2.id);
+      expect(b2again).toBe(b2);
+      expect(b2).not.toBe(b.id);
+      const [c2] = children(other, b2);
+      expect(doc.items.get(c2)).toMatchObject({ name: 'C', type: 'Part Revision', uom: 'kg', id: expect.stringMatching(/^P-\d+$/) });
+      expect(c2).not.toBe(c.id);
+      expect(validateDocument(doc)).toEqual([]);
+    });
+
+    it('copies as new items within the same BOM, even under the copied item', () => {
+      const { doc, bom, a, ra } = twoBoms();
+      const [top] = copyRelations(doc, bom, bom, [ra.id], a.id, undefined, true);
+      expect(top.parentId).toBe(a.id);
+      expect(top.childId).not.toBe(a.id);
+      expect(validateDocument(doc)).toEqual([]);
+    });
   });
 
   it('places a moved relation between siblings by find number', () => {

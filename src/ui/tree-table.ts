@@ -2,7 +2,7 @@ import { activeBom, openDoc, type App } from '../app';
 import { formatEffEnd } from '../effectivity';
 import { expandedVersion, isExpanded, setExpanded } from '../expanded';
 import { validate } from '../expr';
-import { DEFAULT_UOM, lockedIdPrefix, moveRelations, occurrencePath, parentAddress, parseQty, renameItem, setItemType, setItemUom, updateItem, updateRelation } from '../model';
+import { bomIdOf, copyRelations, DEFAULT_UOM, findBom, lockedIdPrefix, moveRelations, occurrencePath, parentAddress, parseQty, renameItem, setItemType, setItemUom, updateItem, updateRelation } from '../model';
 import { flatten, type Occurrence } from '../resolve';
 import { h } from './dom';
 import { typeSelect, uomSelect } from './editor';
@@ -17,7 +17,10 @@ const VARIANT_COL = COLUMNS.findIndex((c) => c.key === 'variant');
 const VARIANT_MAX_CH = 48; // the .tree-table td.expr > span max-width
 const OVERSCAN = 20;
 
-/** What a tree-table shows and edits: its own selection, and whether in-place edit and drag and drop are on. */
+/** The rows being dragged, from any tree-table: in the alignment view rows are dragged between two. */
+let dragged: Occurrence[] = [];
+
+/** What a tree-table shows and edits: its own selection, and whether in-place edit is on. Drag and drop always is. */
 export interface Pane {
   editable: boolean;
   /** The focused row. */
@@ -171,10 +174,10 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
   }
 
   // Drag a row onto another row to make it a child there, or onto a row's top/bottom edge to place it before/after
-  // that row as a sibling. Holding Ctrl or Alt/Option when dropping copies the relation instead of moving it.
-  // Dragging a selected row drags all selected rows that can move, in display order.
+  // that row as a sibling. Holding Ctrl or Alt/Option when dropping copies the relation instead of moving it; adding
+  // Shift copies it as new items. A row dropped in another BOM's tree-table (in the alignment view) can only be copied,
+  // and takes the relations below it along. Dragging a selected row drags all selected rows that can move, in display order.
   type Mode = 'into' | 'before' | 'after';
-  let dragged: Occurrence[] = [];
   let dropRow: HTMLElement | undefined;
   const setDropRow = (row: HTMLElement | undefined, mode?: Mode) => {
     dropRow?.classList.remove('drop-into', 'drop-before', 'drop-after');
@@ -192,6 +195,9 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
     const y = (e.clientY - top) / height;
     const mode: Mode = !target.relation ? 'into' : y < 0.25 ? 'before' : y > 0.75 ? 'after' : 'into';
     const copy = isCopy(e);
+    const asNew = copy && e.shiftKey;
+    const fromBom = bomIdOf(dragged[0].address);
+    if (fromBom !== bomIdOf(target.address) && !copy) return undefined;
 
     const blocked = (d: Occurrence) =>
       target.address.startsWith(`${d.address}/`) ||
@@ -199,16 +205,14 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
       (mode === 'into' && !copy && target.item.id === d.relation!.parentId);
     if (dragged.some(blocked)) return undefined;
 
-    const parentPath = mode === 'into' ? target.path : target.path.slice(0, -1);
-    const parent = app.occurrence(occurrencePath(activeBom(app.state).id, parentPath))!;
+    const parent = mode === 'into' ? target : app.occurrence(parentAddress(target.address))!;
     const siblings = parent.children;
     const beforeId =
       mode === 'before' ? target.relation!.id : mode === 'after' ? siblings[siblings.indexOf(target) + 1]?.relation!.id : undefined;
-    return { row, mode, copy, parent, beforeId };
+    return { row, mode, copy, asNew, fromBom, parent, beforeId };
   };
 
   table.addEventListener('dragstart', (e) => {
-    if (!pane.editable) return e.preventDefault();
     const occ = app.occurrence((e.target as HTMLElement).closest('tr')?.dataset.address);
     if (!occ?.relation) return e.preventDefault();
     const rows = selection();
@@ -234,11 +238,15 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
     const hit = dropTargetAt(e);
     if (!hit) return;
     e.preventDefault();
-    const { parent, beforeId, copy } = hit;
+    const { parent, beforeId, copy, asNew, fromBom } = hit;
     const ids = dragged.map((d) => d.relation!.id);
     app.tryCommit(() => {
-      const bom = activeBom(app.state);
-      const rels = moveRelations(openDoc(app.state), bom, ids, parent.item.id, beforeId, copy);
+      const doc = openDoc(app.state);
+      const bom = findBom(doc, bomIdOf(parent.address))!;
+      const rels =
+        bom.id === fromBom && !asNew
+          ? moveRelations(doc, bom, ids, parent.item.id, beforeId, copy)
+          : copyRelations(doc, findBom(doc, fromBom)!, bom, ids, parent.item.id, beforeId, asNew);
       setExpanded(parent, true);
       const [first, ...rest] = rels.map((r) => occurrencePath(bom.id, [...parent.path, r.id]));
       pane.select(first, rest);
@@ -396,7 +404,6 @@ export function createTreeTable(container: HTMLElement, app: App, pane: Pane) {
     const row = renderRow(occ, depths[i], !isExpanded(occ), marks.selected.has(occ.address));
     row.classList.toggle('focused', occ.address === pane.selected());
     row.classList.toggle('band', i % 2 === 1);
-    row.draggable &&= pane.editable;
     row.classList.toggle('unaligned', !!marks.unaligned?.has(occ.address));
     return row;
   }

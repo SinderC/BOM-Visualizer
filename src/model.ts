@@ -90,7 +90,7 @@ export function parentAddress(address: string): string {
   return address.slice(0, Math.max(address.lastIndexOf('/'), colon + 1));
 }
 
-const bomIdOf = (address: string) => address.slice(0, address.indexOf(':'));
+export const bomIdOf = (address: string) => address.slice(0, address.indexOf(':'));
 
 /** True if the address is an occurrence of the document: each relation in the path hangs under the previous child. */
 export function isOccurrence(doc: BomDocument, address: string): boolean {
@@ -549,18 +549,92 @@ export function moveRelations(doc: BomDocument, bom: Bom, ids: string[], parentI
     if (!src) throw new Error(`Unknown relation ${id}`);
     assertNoCycle(index, parentId, src.childId);
     const rel = copy ? { ...src, eff: { ...src.eff }, id: `R${relNo++}`, parentId } : src;
-    rel.findNo = placeFindNo(siblings, rel, parentId, beforeId);
     if (copy) bom.relations.push(rel);
     else {
       const from = index.get(rel.parentId)!;
       from.splice(from.indexOf(rel), 1);
       rel.parentId = parentId;
     }
-    siblings.splice(beforeId === undefined ? siblings.length : siblings.findIndex((r) => r.id === beforeId), 0, rel);
+    place(siblings, rel, parentId, beforeId);
     return rel;
   });
   if (!copy) pruneAlignments(doc);
   return placed;
+}
+
+/** Sets the find number that puts `rel` before sibling `beforeId` (or last), and adds it there to `siblings`. */
+function place(siblings: Relation[], rel: Relation, parentId: string, beforeId: string | undefined): void {
+  rel.findNo = placeFindNo(siblings, rel, parentId, beforeId);
+  siblings.splice(beforeId === undefined ? siblings.length : siblings.findIndex((r) => r.id === beforeId), 0, rel);
+}
+
+/**
+ * Adds copies of relations of `from` (same qty, variant, effectivity) under `parentId` in `to`, before sibling
+ * `beforeId` (or last), keeping their given order, with copies of the relations below them. Without `newItems` the
+ * copies use the same items, and an item that already has children in `to` keeps those instead. With `newItems` each
+ * item below the copied relations is replaced by one new item with the same data, given an id with its type's prefix.
+ * Returns the copies of the given relations.
+ */
+export function copyRelations(
+  doc: BomDocument,
+  from: Bom,
+  to: Bom,
+  ids: string[],
+  parentId: string,
+  beforeId: string | undefined,
+  newItems: boolean,
+): Relation[] {
+  const byId = new Map(from.relations.map((r) => [r.id, r]));
+  const fromIndex = unsortedChildrenIndex(from);
+  const index = unsortedChildrenIndex(to);
+  const sources = ids.map((id) => {
+    const src = byId.get(id);
+    if (!src) throw new Error(`Unknown relation ${id}`);
+    return src;
+  });
+
+  // The items below the copied relations, each visited once, and the relations to copy below them.
+  const copyOf = new Map<string, string>(); // item id → id of the item its copies use
+  const below: Relation[] = [];
+  const visit = (itemId: string) => {
+    if (copyOf.has(itemId)) return;
+    copyOf.set(itemId, itemId);
+    if (!newItems && index.has(itemId)) return;
+    for (const r of fromIndex.get(itemId) ?? []) {
+      below.push(r);
+      visit(r.childId);
+    }
+  };
+  for (const r of sources) visit(r.childId);
+
+  const clones = new Map<string, Item>(); // by id
+  if (newItems) {
+    // Counted per prefix: nextItemId scans all items on each call.
+    const next = new Map<string, number>();
+    for (const item of [...copyOf.keys()].map((id) => doc.items.get(id)!)) {
+      const prefix = idPrefix(doc, item.type);
+      let n = next.get(prefix) ?? Number(nextId(prefix, doc.items.keys()).slice(prefix.length));
+      while (doc.items.has(`${prefix}${n}`) || clones.has(`${prefix}${n}`)) n++; // another prefix's ids can overlap
+      next.set(prefix, n + 1);
+      const id = `${prefix}${n}`;
+      clones.set(id, { ...item, id });
+      copyOf.set(item.id, id);
+    }
+  }
+
+  let relNo = Number(newRelationId(doc).slice(1));
+  const copy = (r: Relation, parent: string): Relation => ({ ...r, eff: { ...r.eff }, id: `R${relNo++}`, parentId: parent, childId: copyOf.get(r.childId)! });
+  const added = below.map((r) => copy(r, copyOf.get(r.parentId)!));
+  const top = sources.map((r) => copy(r, parentId));
+  // New items cannot close a cycle; shared ones can, through the relations copied below them.
+  const cycle = newItems ? undefined : findCycle({ ...to, relations: [...to.relations, ...added, ...top] });
+  if (cycle) throw new Error(`Copying under ${parentId} would create a cycle through ${cycle}`);
+
+  const siblings = (index.get(parentId) ?? []).sort(byFindNo);
+  for (const rel of top) place(siblings, rel, parentId, beforeId);
+  for (const [id, item] of clones) doc.items.set(id, item);
+  to.relations.push(...added, ...top);
+  return top;
 }
 
 /**

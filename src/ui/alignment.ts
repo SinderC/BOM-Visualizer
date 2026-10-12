@@ -32,7 +32,10 @@ function unaligned(root: Occurrence, linked: Set<string>): Set<string> {
   return new Set(flatten(root).filter((o) => o.relation && !linked.has(o.address)).map((o) => o.address));
 }
 
-/** Read-only side-by-side view of the active BOM (left) and the aligned BOM (right), with link lines between them. */
+/**
+ * Side-by-side view of the active BOM (left) and the aligned BOM (right), with link lines between them. Rows are not
+ * edited in place, but can be dragged within and between the BOMs.
+ */
 export function createAlignmentView(container: HTMLElement, app: App) {
   const leftPane = h('div', { className: 'align-pane' });
   const rightPane = h('div', { className: 'align-pane' });
@@ -136,5 +139,6 @@ export function renderAlignPanel(container: HTMLElement, app: App, leftRoot: Occ
     coverage(leftBom, leftRoot, new Set(shown.map((l) => l.left))),
     coverage(rightBom, rightRoot, new Set(shown.map((l) => l.right))),
     h('p', { className: 'muted hint' }, 'Unaligned rows are marked at the left edge. Alignments are removed when an end is removed or moved.'),
+    h('p', { className: 'muted hint' }, 'Drag rows between the BOMs with Ctrl or Alt/Option to copy them; add Shift to copy as new items.'),
   );
 }
